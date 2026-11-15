@@ -33,6 +33,9 @@ const kv = (tk, body) => post('/kv', { tok: tk, now: Date.now(), since: 0, ...bo
 const A = S[0], B = S[1];
 const tA = await tok(A), tB = await tok(B);
 
+await t('상태 확인에 kv 표시', async () => {
+  const j = await (await fetch(API + '/')).json(); assert.equal(j.ok, true); assert.equal(j.db, 'ok'); assert.equal(j.kv, true);
+});
 await t('토큰 없거나 틀리면 401', async () => {
   assert.equal((await post('/kv', { now: Date.now(), since: 0 })).st, 401);
   assert.equal((await post('/kv', { tok: tA.slice(0, -2) + 'xx', now: Date.now(), since: 0 })).st, 401);

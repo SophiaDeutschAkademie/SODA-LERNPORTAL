@@ -9,7 +9,7 @@
      비밀 변수 SYNC_SECRET을 넣으면 그 값을 대신 씁니다(바꾸면 발급한 토큰이 모두 무효가 되고, 앱이 새 토큰을 받습니다).
 
    요청 (본문은 JSON. 2KB가 넘으면 앱이 gzip으로 압축해 보냅니다)
-   - GET  /        상태 확인 {ok, db}
+   - GET  /        상태 확인 {ok, db, kv}
    - POST /token   {sid, k}  학습 포탈 학생 파일(data/{sid}.bin)이 포탈 로그인 키 k로 열리는지 확인하고 저장 토큰을 줍니다.
    - POST /sync    {tok, app, rev, ch:[[키, 값 또는 null, 바꾼 시각]], cur}
                    바뀐 기록을 저장하고, 앱이 마지막으로 받은 번호(rev) 뒤에 다른 기기가 바꾼 기록을 돌려줍니다.
@@ -99,7 +99,7 @@ async function readBody(request) {
 
 async function health(env) {
   if (!env.DB) return { ok: false, service: 'soda-sync', db: 'missing' };
-  try { await schema(env); return { ok: true, service: 'soda-sync', db: 'ok' }; }
+  try { await schema(env); return { ok: true, service: 'soda-sync', db: 'ok', kv: true }; } // kv: 학습 저장(/kv)이 있는 코드
   catch (e) { return { ok: false, service: 'soda-sync', db: 'error' }; }
 }
 

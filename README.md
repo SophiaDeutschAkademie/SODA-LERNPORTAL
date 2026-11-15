@@ -68,7 +68,7 @@ Sophia Deutsch Akademie 학습 포탈입니다. 학생이 로그인해서 자신
 
 - **저장 서버.** Cloudflare Worker `soda-sync`(주소 `https://soda-sync.windschlaf.workers.dev`)와 D1 데이터베이스입니다. 코드는 이 저장소의 `sync-server/soda-sync.js`이고, Cloudflare 화면에 붙여 넣어 배포합니다. 말하기 서버(`sprechen`)와는 따로 있습니다.
   - Cloudflare 설정(처음 한 번): (1) Workers & Pages에서 이름 `soda-sync`로 Worker를 만들고 코드를 `sync-server/soda-sync.js` 내용으로 바꿔 배포합니다. (2) D1 데이터베이스를 하나 만듭니다(이름 `soda-sync`). (3) Worker의 Settings → Bindings에서 D1 데이터베이스 바인딩을 변수 이름 `DB`로 더합니다. 표는 첫 요청 때 자동으로 만들고, 그 밖의 설정은 없습니다(토큰 서명 키도 첫 요청 때 만들어 D1 `sys` 표에 둡니다. 비밀 변수 `SYNC_SECRET`을 넣으면 그 값을 씁니다).
-  - 확인: `https://soda-sync.windschlaf.workers.dev/`가 `{"ok":true,"service":"soda-sync","db":"ok"}`를 보이면 준비된 것입니다. `db`가 `missing`이면 바인딩이 없는 것입니다.
+  - 확인: `https://soda-sync.windschlaf.workers.dev/`가 `{"ok":true,"service":"soda-sync","db":"ok","kv":true}`를 보이면 준비된 것입니다. `db`가 `missing`이면 바인딩이 없는 것입니다. `"kv":true`가 없으면 VOKALAB만 저장하던 예전 코드이므로 `sync-server/soda-sync.js`로 코드를 바꿔 다시 배포합니다(이때 VOKALAB 학습 저장은 그대로 되고, 다른 학습 앱은 「학습 저장」 상태 줄에 「저장 서버에 연결하지 못했습니다」가 나옵니다). 코드를 바꿔도 D1의 기록은 그대로입니다.
   - Worker 이름을 다르게 지었다면 주소가 달라지므로 `index.html`의 `SYNC_API`, `sync.js`의 `API`, VOKALAB(`SODA-Lehrwerk/vokalab/index.html`의 `voka-sync-js` 블록)의 `API`를 그 주소로 고칩니다.
   - 서버가 없거나 한 번도 연결되지 않은 기기에서는 학습 앱이 예전처럼 그 브라우저에만 저장하고, 서버가 준비되면 그때부터 저장합니다. VOKALAB은 아무 표시를 하지 않고, 포탈의 「학습 저장」 상태 줄은 「저장 서버에 연결하지 못했습니다」를 회색으로 보입니다.
   - 서버 코드를 고친 뒤에는 `node sync-server/test/worker.test.mjs`(VOKALAB이 쓰는 `/token` · `/sync`)와 `node sync-server/test/kv.test.mjs`(sync.js가 쓰는 `/kv`)로 시험합니다(Node 22 이상, `pip install cryptography`). 시험용 D1과 시험용 학생 파일을 임시 폴더에 만들어 실제 요청으로 시험합니다.
