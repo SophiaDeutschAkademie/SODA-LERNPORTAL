@@ -187,6 +187,49 @@ iframe#rf,iframe#rfz,iframe#vf,iframe#gf,iframe#xf,iframe#trf{display:block;widt
 .a2hs-ok.ghost{background:#e1e5ee;color:var(--acc)}
 @media (min-width:641px){.a2hs-sheet{align-items:center}.a2hs-box{margin:0}}
 @media print{.a2hs-btn,.a2hs-sheet{display:none!important}}
+/* 공지사항: 머리글의 버튼(로그아웃 옆)과 읽지 않은 공지 수, 공지 목록 창 */
+.vhead .hb{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.btn.ntc{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.btn.ntc .nb{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;margin:-3px -5px -3px 0;padding:0 6px;border-radius:999px;background:#fff;color:var(--acc);font-size:12px;font-weight:800;line-height:1;letter-spacing:0;font-variant-numeric:tabular-nums}
+.vhead .btn.ntc.on{border-color:#fff;background:rgba(255,255,255,.12)}
+.vhead .btn.ntc.on:hover{background:rgba(255,255,255,.2)}
+html.nt-lock,html.nt-lock body{overflow:hidden}
+.nt-sheet{position:fixed;inset:0;z-index:1000;display:flex;align-items:flex-end;justify-content:center}
+.nt-bg{position:absolute;inset:0;background:rgba(20,24,36,.45)}
+.nt-box{position:relative;display:flex;flex-direction:column;width:100%;max-width:600px;max-height:88vh;max-height:88dvh;background:var(--bg);border-radius:20px 20px 0 0;box-shadow:0 -10px 40px rgba(0,0,0,.18);outline:none;overflow:hidden}
+.nt-sheet.wide .nt-box{max-width:780px}
+.nt-hd{display:flex;align-items:center;gap:10px;padding:14px 12px 12px 20px;background:#fff;border-bottom:1px solid var(--line)}
+.nt-hd h2{flex:1;min-width:0;margin:0;font-size:18px;line-height:1.4}
+.nt-x{display:flex;align-items:center;justify-content:center;width:38px;height:38px;flex:none;border:0;border-radius:50%;background:transparent;color:var(--mute);cursor:pointer}
+.nt-x:hover,.nt-x:focus-visible{background:#f1efe9;color:var(--ink);outline:none}
+.nt-x svg{width:20px;height:20px}
+.nt-bd{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:14px 14px calc(16px + env(safe-area-inset-bottom))}
+.nt-it{background:#fff;border:1px solid var(--line);border-radius:12px;margin:0 0 8px}
+.nt-it.new{border-color:#b9c0cf}
+.nt-it>summary{display:flex;align-items:flex-start;gap:10px;padding:12px 12px 12px 16px;cursor:pointer;list-style:none;border-radius:12px}
+.nt-it>summary::-webkit-details-marker{display:none}
+.nt-it>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+.nt-h{flex:1;min-width:0}
+.nt-tags{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 4px}
+.nt-tag{display:inline-block;border-radius:999px;padding:0 8px;font-size:11.5px;font-weight:700;line-height:1.75;white-space:nowrap}
+.nt-tag.new{background:var(--acc);color:#fff}
+.nt-tag.pin{background:var(--accbg);color:var(--acc)}
+.nt-tag.to{background:#efece4;color:var(--mute);font-weight:600}
+.nt-t{display:block;font-size:15.5px;font-weight:700;line-height:1.5}
+.nt-d{display:block;margin-top:2px;color:var(--mute);font-size:12.5px;line-height:1.4}
+.nt-cv{display:flex;flex:none;margin-top:3px;color:var(--mute);transition:transform .15s}
+.nt-cv svg{width:18px;height:18px}
+.nt-it[open] .nt-cv{transform:rotate(180deg)}
+.nt-b{margin:0 16px;padding:12px 0 16px;border-top:1px solid var(--line);font-size:14.5px;line-height:1.8;white-space:pre-wrap}
+.nt-b a{color:var(--acc);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.nt-empty{color:var(--mute);background:#fff;border:1px dashed var(--line);border-radius:12px;padding:22px 16px;text-align:center;font-size:14px}
+.nt-empty .btn{margin-top:10px}
+.nt-pv{margin:0 0 10px;font-size:13px;color:var(--mute)}
+.nt-cl{display:block;width:100%;margin:6px 0 0;padding:11px;border:1.5px solid var(--line);border-radius:12px;background:#fff;color:var(--acc);font:inherit;font-weight:700;font-size:15px;cursor:pointer}
+.nt-cl:hover,.nt-cl:focus-visible{border-color:var(--acc);outline:none}
+@media (min-width:641px){.nt-sheet{align-items:center;padding:24px}.nt-box{border-radius:18px;max-height:min(82vh,780px);box-shadow:0 24px 60px rgba(0,0,0,.22)}.nt-bd{padding:16px 18px 20px}}
+@media (max-width:480px){.nt-hd{padding:12px 8px 10px 16px}.nt-hd h2{font-size:17px}.nt-bd{padding:12px 10px calc(14px + env(safe-area-inset-bottom))}.nt-t{font-size:15px}.nt-b{margin:0 14px;font-size:14px}.nt-it>summary{padding:11px 10px 11px 14px}}
+@media print{.nt-sheet{display:none!important}}
 [hidden]{display:none!important}
 .login{min-height:calc(100vh - 90px);display:flex;flex-direction:column;justify-content:center;align-items:center;padding:12px 0 24px}
 .lg-logo{width:60px;height:69px;margin-bottom:18px}
@@ -420,6 +463,7 @@ function saveSess(fresh){
  if(!sp&&same&&prev.sp) sp=prev.sp;
  var x={v:1,sid:session.sid,id:session.uid||d.name,name:d.name,level:d.level,k:b64e(session.kb),sp:sp,q:(keep&&typeof prev.q==='number')?prev.q:nextQuote(),at:keep?prev.at:now,exp:keep?prev.exp:now+STTL};
  if(!sp&&keep&&prev.spc) x.spc=prev.spc;
+ if(Array.isArray(d.grammatik)) x.gr=1; /* GRAMMATIK 탭이 있는 학생: GRAMMATIK 대상 공지를 보여 주는 데 씁니다 */
  writeSess(x);
 }
 /* ===== 말하기 계정 확인 =====
@@ -542,6 +586,7 @@ async function decryptBundle(buf,pw,id){return (await openBundle(buf,pw,id)).dat
 var fails=0;
 function viewLogin(opt){
  opt=opt||{};
+ ntClose(true);
  session=null; hidden={}; curLevel=null; vLevel=null; pSel=null; tSel=null; window.onresize=null; $('#top').hidden=true;
  app.innerHTML='<div class="login"><div class="lg-logo"><svg viewBox="0 0 1157 1332" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><polygon points="0,320 686,0 686,707 0,1027" fill="#57585A"/><polygon points="235,501 921,153 921,860 235,1180" fill="#ED1B24"/><polygon points="470,655 1157,305 1157,985 470,1332" fill="#F2C811"/></svg></div>'
   +'<div class="lg-brand">Sophia Deutsch Akademie</div><div class="lg-title">학습 포탈</div>'
@@ -749,6 +794,196 @@ function levelBtns(d,z,cur,noneMsg){
  return h||(noneMsg?NONE_MSG:'');
 }
 
+/* ===== 공지사항 =====
+   선생님이 관리자 화면에서 올린 공지(notices.json)를 로그인한 학생에게 보여 줍니다. 「공지사항」 버튼은 머리글의 로그아웃 버튼 옆에 있고,
+   새 공지가 있으면 버튼 안에 읽지 않은 공지 수가 나옵니다. 버튼을 누르면 공지 목록 창이 열리고, 새 공지는 펼친 채로 보입니다.
+   - 새 공지: 대상에 맞고, 이 기기에서 아직 열어 보지 않았고, 올린 지 30일이 안 된 공지입니다.
+     중요 공지(pin, 맨 위 고정)는 30일이 지나도 아직 열어 보지 않았으면 새 공지로 셉니다. 나중에 들어온 학생도 보게 하려는 것입니다.
+   - 공지 목록 창을 열면 그때 펼쳐 보인 새 공지를 읽음으로 남깁니다(이 브라우저의 localStorage soda-portal:notice, 학생 파일 id별).
+     읽음 기록은 기기마다 따로라서 다른 기기에서는 다시 새 공지로 셉니다.
+   - 대상(to): 비어 있으면 모든 학생, 레벨이 있으면 기본 레벨이 그 레벨인 학생에게만 보입니다. GRAMMATIK은 GRAMMATIK 탭이 있는 학생도 포함합니다.
+   - 공지는 화면을 그릴 때(5분이 지났으면), 다른 앱에 다녀왔을 때, 5분마다, 공지 창을 열 때 다시 읽습니다.
+   - notices.json은 저장소에 공개로 올라가는 파일입니다. 화면은 로그인한 뒤에만 보이지만 주소를 아는 사람은 파일을 열 수 있습니다. */
+var NT={list:null,raw:'',state:'idle',at:0,p:null,seen:{}}, NKEY='soda-portal:notice', NT_NEW=30, NT_TTL=5*60*1000;
+var IC_X='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+var IC_CHEV='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
+function ntDay(s){s=String(s||'');return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:'';}
+/* 공지 파일을 화면용 목록으로 바꿉니다. 중요 공지가 먼저, 그다음 올린 날짜가 늦은 순서입니다 */
+function ntNorm(j){
+ var a=(j&&Array.isArray(j.notices))?j.notices:Array.isArray(j)?j:[];
+ return a.filter(function(n){return n&&n.id!=null&&String(n.id)!==''&&(n.title||n.body);}).map(function(n){
+  return {id:String(n.id),date:ntDay(n.date),upd:ntDay(n.upd),title:String(n.title||'').trim(),body:String(n.body||'').replace(/\r\n?/g,'\n').trim(),
+   to:Array.isArray(n.to)?n.to.map(function(x){return String(x).trim();}).filter(Boolean):[],pin:!!n.pin};
+ }).sort(function(p,q){return ((+q.pin)-(+p.pin))||(q.date<p.date?-1:q.date>p.date?1:0)||(q.id<p.id?-1:q.id>p.id?1:0);});
+}
+function ntSet(j){
+ var list=ntNorm(j), raw=JSON.stringify(list), ch=raw!==NT.raw;
+ NT.list=list; NT.raw=raw; NT.state='ok'; NT.at=Date.now();
+ ntBadge(); if(ch) ntRerender();
+ return list;
+}
+/* GitHub Pages는 파일을 몇 분 동안 캐시하므로 1분 단위로 바뀌는 값을 주소에 붙여 새로 받습니다. 파일이 없으면(404) 공지가 없는 것으로 봅니다 */
+function ntLoad(force){
+ if(NT.p) return NT.p;
+ if(!force&&NT.state==='ok'&&Date.now()-NT.at<NT_TTL) return Promise.resolve(NT.list);
+ if(!window.fetch) return Promise.resolve(NT.list);
+ NT.p=fetch('notices.json?t='+Math.floor(Date.now()/60000),{cache:'no-store'}).then(function(r){
+  if(r.status===404) return {notices:[]};
+  if(!r.ok) throw new Error('http'+r.status);
+  return r.json();
+ }).then(function(j){NT.p=null;return ntSet(j);},function(){NT.p=null; if(NT.state!=='ok') NT.state='err'; ntRerender(); return NT.list;});
+ return NT.p;
+}
+/* 공지를 보는 사람. 관리자가 연 학생 화면(미리보기)은 그 학생의 대상만 맞춰 보여 주고 숫자와 읽음 표시는 쓰지 않습니다 */
+function ntViewer(){
+ if(!session) return null;
+ var d=session.data;
+ if(adminKeep) return {sid:'',preview:true,level:(d&&d.level)||'',gr:!!(d&&Array.isArray(d.grammatik))};
+ if(d&&d.role==='admin') return null;
+ var st=session.stub||{}, lv=(d&&d.level)||st.level||'';
+ return {sid:session.sid,preview:false,level:lv,gr:d?Array.isArray(d.grammatik):(!!st.gr||lv==='GRAMMATIK')};
+}
+function ntFor(v,n){return !n.to.length||(!!v&&(n.to.indexOf(v.level)>=0||(!!v.gr&&n.to.indexOf('GRAMMATIK')>=0)));}
+function ntMine(v){return (NT.list||[]).filter(function(n){return ntFor(v,n);});}
+function ntReadMap(){try{var o=JSON.parse(localStorage.getItem(NKEY)||'{}');return (o&&typeof o==='object'&&!Array.isArray(o))?o:{};}catch(e){return {};}}
+function ntRead(sid){var a=ntReadMap()[sid];return Array.isArray(a)?a:[];}
+function ntMark(sid,ids){
+ if(!sid||!ids.length) return;
+ var m=ntReadMap(), a=Array.isArray(m[sid])?m[sid].slice():[], ch=false;
+ ids.forEach(function(id){if(a.indexOf(id)<0){a.push(id);ch=true;}});
+ if(!ch) return;
+ m[sid]=a.slice(-300); /* 오래된 기록부터 지워 학생마다 300개까지만 둡니다 */
+ try{localStorage.setItem(NKEY,JSON.stringify(m));}catch(e){}
+}
+function ntAge(n){
+ var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(n.date||''); if(!m) return 0;
+ var t=new Date(); return Math.round((new Date(t.getFullYear(),t.getMonth(),t.getDate())-new Date(+m[1],+m[2]-1,+m[3]))/86400000);
+}
+function ntIsNew(n,read){return read.indexOf(n.id)<0&&(n.pin||ntAge(n)<NT_NEW);}
+function ntCount(){
+ var v=ntViewer(); if(!v||v.preview||!v.sid||!NT.list) return 0;
+ var r=ntRead(v.sid); return ntMine(v).filter(function(n){return ntIsNew(n,r);}).length;
+}
+function ntLabel(n){return n?'공지사항, 읽지 않은 공지 '+n+'개':'공지사항';}
+function ntNum(n){return n>99?'99+':String(n);}
+/* 머리글 버튼. 로그아웃 버튼 바로 앞에 둡니다. 숫자는 공지를 받아 온 뒤에도 ntBadge가 고칩니다 */
+function ntBtn(){
+ var n=ntCount(); setTimeout(ntEnsure,0);
+ return '<button type="button" class="btn ntc'+(n?' on':'')+'" data-ntc aria-haspopup="dialog" aria-label="'+ntLabel(n)+'">공지사항'+(n?'<span class="nb" aria-hidden="true">'+ntNum(n)+'</span>':'')+'</button>';
+}
+function ntBadge(){
+ var n=ntCount();
+ Array.prototype.forEach.call(document.querySelectorAll('[data-ntc]'),function(b){
+  var s=b.querySelector('.nb');
+  b.classList.toggle('on',n>0); b.setAttribute('aria-label',ntLabel(n));
+  if(!n){if(s) b.removeChild(s); return;}
+  if(!s){s=document.createElement('span'); s.className='nb'; s.setAttribute('aria-hidden','true'); b.appendChild(s);}
+  s.textContent=ntNum(n);
+ });
+}
+function ntEnsure(){if(ntViewer()) ntLoad(false);}
+/* 공지 목록 창: 휴대폰에서는 아래에서 올라오는 창, 컴퓨터에서는 가운데 창입니다. 휴대폰의 뒤로 가기로도 닫히도록 열 때 기록을 하나 남깁니다 */
+var ntSh=null, ntLast=null, ntPushed=false, ntSkip=false, ntMode='';
+function ntSheet(){
+ if(ntSh) return ntSh;
+ ntSh=document.createElement('div'); ntSh.className='nt-sheet'; ntSh.hidden=true;
+ ntSh.setAttribute('role','dialog'); ntSh.setAttribute('aria-modal','true'); ntSh.setAttribute('aria-labelledby','nt-t');
+ ntSh.innerHTML='<div class="nt-bg" data-ntx></div><div class="nt-box" tabindex="-1"><div class="nt-hd"><h2 id="nt-t">공지사항</h2><button type="button" class="nt-x" data-ntx aria-label="닫기">'+IC_X+'</button></div><div class="nt-bd" id="nt-bd"></div></div>';
+ ntSh.addEventListener('click',function(e){if(e.target.closest('[data-ntx]')&&!e.target.closest('[disabled]')) ntClose();});
+ document.body.appendChild(ntSh);
+ return ntSh;
+}
+/* o.title 창 제목, o.mode 'list'(학생) 또는 'admin'(관리자 화면의 공지 관리), o.wide 넓은 창, o.render(창 본문) */
+function ntShow(o){
+ var sh=ntSheet(), bd=sh.querySelector('.nt-bd'), first=sh.hidden;
+ sh.querySelector('#nt-t').textContent=o.title||'공지사항';
+ sh.classList.toggle('wide',!!o.wide); ntMode=o.mode||'list';
+ bd.onclick=null; bd.onchange=null; bd.oninput=null; bd.scrollTop=0;
+ if(first){
+  ntLast=document.activeElement; sh.hidden=false; document.documentElement.classList.add('nt-lock');
+  try{history.pushState({v:(history.state&&history.state.v)||hashView()||'',ntc:1},'',location.href); ntPushed=true;}catch(e){ntPushed=false;}
+ }
+ o.render(bd);
+ if(first) sh.querySelector('.nt-box').focus();
+}
+/* fromPop=true: 뒤로 가기로 닫았거나 로그아웃 등으로 닫을 때. 이때는 기록을 되돌리지 않습니다 */
+function ntClose(fromPop){
+ if(!ntSh||ntSh.hidden) return;
+ ntSh.hidden=true; ntMode=''; document.documentElement.classList.remove('nt-lock');
+ var bd=ntSh.querySelector('.nt-bd'); bd.innerHTML=''; bd.onclick=null; bd.onchange=null; bd.oninput=null;
+ if(ntPushed&&!fromPop){ntSkip=true; setTimeout(function(){ntSkip=false;},1500); try{history.back();}catch(e){ntSkip=false;}}
+ ntPushed=false;
+ var l=ntLast; ntLast=null;
+ if(!(l&&document.contains(l))) l=document.querySelector('[data-ntc]');
+ if(l&&l.focus) try{l.focus({preventScroll:true});}catch(e){}
+}
+/* popstate에서 먼저 부릅니다. true이면 화면을 다시 그리지 않습니다 */
+function ntOnPop(){
+ if(ntSkip){ntSkip=false; return true;}
+ if(ntSh&&!ntSh.hidden){ntPushed=false; ntClose(true); return true;}
+ return false;
+}
+function ntOpen(){
+ var d=session&&session.data;
+ if(d&&d.role==='admin'&&!adminKeep){if(window.HAAdmin&&window.HAAdmin.notices) window.HAAdmin.notices(); return;}
+ var v=ntViewer(); if(!v) return;
+ NT.seen={};
+ ntShow({title:'공지사항',mode:'list',render:function(bd){ntList(bd,v);}});
+ if(NT.state!=='ok'||Date.now()-NT.at>60000) ntLoad(true);
+}
+function ntList(bd,v){
+ var keep={}, foot='<button type="button" class="nt-cl" data-ntx>닫기</button>', wait='<div class="nt-empty" role="status">공지를 불러오고 있습니다.</div>';
+ Array.prototype.forEach.call(bd.querySelectorAll('.nt-it[open]'),function(x){keep[x.getAttribute('data-id')]=1;});
+ if(!NT.list){
+  bd.innerHTML=(NT.state==='err'?'<div class="nt-empty">공지를 불러오지 못했습니다. 인터넷 연결을 확인하십시오.<br><button type="button" class="btn" id="nt-rt">다시 불러오기</button></div>':wait)+foot;
+  var rt=bd.querySelector('#nt-rt'); if(rt) rt.addEventListener('click',function(){bd.innerHTML=wait+foot; ntLoad(true);});
+  return;
+ }
+ var L=ntMine(v), r=v.sid?ntRead(v.sid):[], mark=[], h=v.preview?'<p class="nt-pv">미리보기: 이 학생에게 보이는 공지입니다. 새 공지 숫자와 읽음 표시는 학생의 기기에서 따로 셉니다.</p>':'';
+ if(!L.length) h+='<div class="nt-empty">등록된 공지가 없습니다.</div>';
+ L.forEach(function(n){
+  var nw=!v.preview&&(!!NT.seen[n.id]||ntIsNew(n,r));
+  if(nw){NT.seen[n.id]=1; mark.push(n.id);}
+  h+=ntItem(n,{isNew:nw,open:nw||!!keep[n.id]});
+ });
+ bd.innerHTML=h+foot;
+ if(mark.length) ntMark(v.sid,mark);
+ ntBadge();
+}
+function ntRerender(){
+ if(!ntSh||ntSh.hidden||ntMode!=='list') return;
+ var v=ntViewer(); if(v) ntList(ntSh.querySelector('.nt-bd'),v); else ntClose(true);
+}
+function ntFmt(s){var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||'');return m?m[1]+'.'+m[2]+'.'+m[3]:'';}
+function ntWhen(n){var s=ntFmt(n.date); if(n.upd&&n.upd!==n.date) s+=(s?' · ':'')+'수정 '+ntFmt(n.upd); return s;}
+/* 본문: 글자 그대로(줄바꿈 유지) 보이고, http(s) 주소는 새 창 링크가 됩니다 */
+function ntBody(t){
+ var s=String(t||''), out='', re=/https?:\/\/[^\s<>"']+/g, m, last=0, u, c;
+ while((m=re.exec(s))){
+  u=m[0];
+  while(/[.,!?;:)\]}]$/.test(u)){
+   c=u.slice(-1);
+   if(c===')'&&u.split('(').length>=u.split(')').length) break; /* 짝이 맞는 괄호는 주소의 일부입니다 */
+   u=u.slice(0,-1);
+  }
+  out+=esc(s.slice(last,m.index))+'<a href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(u)+'</a>';
+  last=m.index+u.length; re.lastIndex=last;
+ }
+ return out+esc(s.slice(last));
+}
+/* 공지 하나. o.isNew 새 공지 표시, o.open 펼침, o.tools 관리자 화면의 수정 · 삭제 버튼 */
+function ntItem(n,o){
+ o=o||{};
+ var tg=(o.isNew?'<span class="nt-tag new">새 공지</span>':'')+(n.pin?'<span class="nt-tag pin">중요</span>':'')+(n.to.length?'<span class="nt-tag to">대상 '+esc(n.to.join(' · '))+'</span>':'');
+ return '<details class="nt-it'+(o.isNew?' new':'')+'" data-id="'+esc(n.id)+'"'+(o.open?' open':'')+'><summary><span class="nt-h">'+(tg?'<span class="nt-tags">'+tg+'</span>':'')
+  +'<span class="nt-t">'+esc(n.title||'공지')+'</span><span class="nt-d">'+ntWhen(n)+'</span></span><span class="nt-cv" aria-hidden="true">'+IC_CHEV+'</span></summary>'
+  +'<div class="nt-b">'+ntBody(n.body)+'</div>'+(o.tools||'')+'</details>';
+}
+document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-ntc]'); if(!b) return; e.preventDefault(); ntOpen();});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&ntSh&&!ntSh.hidden) ntClose();});
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible') ntEnsure();});
+setInterval(function(){if(document.visibilityState!=='hidden') ntEnsure();},NT_TTL);
+
 /* ===== 학습 포탈: 로그인 뒤 첫 화면과 화면 이동 =====
    첫 화면(#hub)에서 「나의 학습 기록 보기」(#records)와 「학습 진행하기」(#learn)로 갑니다. 주소 끝의 #이름으로 뒤로 가기가 동작합니다.
    관리자 화면과 관리자가 여는 학생 화면에서는 쓰지 않습니다. */
@@ -764,14 +999,14 @@ function route(v,replace){
 /* 저장된 로그인으로 다시 엽니다. 학생 파일은 「나의 학습 기록 보기」를 누를 때 읽습니다 */
 function restore(){
  var s=readSess(); if(!s||s.t) return false; /* 선생님 통과 로그인은 포탈 화면을 열지 않습니다 */
- try{session={data:null,sid:s.sid,pw:null,kb:b64d(s.k),uid:s.id,stub:{name:s.name,level:s.level}};}catch(e){session=null;clearSess();return false;}
+ try{session={data:null,sid:s.sid,pw:null,kb:b64d(s.k),uid:s.id,stub:{name:s.name,level:s.level,gr:!!s.gr}};}catch(e){session=null;clearSess();return false;}
  portalSeen(false);
  return true;
 }
 function me(){var d=session&&session.data, s=(session&&session.stub)||{}; return {name:(d&&d.name)||s.name||'',level:(d&&d.level)||s.level||''};}
 function headHtml(home){
  var m=me();
- return '<div class="vhead"><div class="row"><div><div class="who">'+esc(m.name)+'</div>'+(m.level&&m.level!=='-'?'<div class="lv">현재 레벨 '+esc(m.level)+'</div>':'')+'</div><div>'+(home?'<button class="btn" id="hm">처음 화면</button> ':'')+'<button class="btn" id="out">로그아웃</button></div></div></div>';
+ return '<div class="vhead"><div class="row"><div><div class="who">'+esc(m.name)+'</div>'+(m.level&&m.level!=='-'?'<div class="lv">현재 레벨 '+esc(m.level)+'</div>':'')+'</div><div class="hb">'+(home?'<button class="btn" id="hm">처음 화면</button>':'')+ntBtn()+'<button class="btn" id="out">로그아웃</button></div></div></div>';
 }
 function quoteHtml(){
  var s=readSess(), i=(s&&typeof s.q==='number'&&s.q>=0&&s.q<QUOTES.length)?s.q:Math.floor(Math.random()*QUOTES.length), q=QUOTES[i];
@@ -857,6 +1092,7 @@ async function openRecords(){
  }
 }
 window.addEventListener('popstate',function(){
+ if(ntOnPop()) return; /* 공지 창이 열려 있으면 뒤로 가기는 창만 닫습니다 */
  if(session&&!isStudent()) return;
  if(!session&&!restore()) return;
  render(hashView()||'hub');
@@ -868,11 +1104,12 @@ function syncSess(){
  if(!s){leave();return;}
  if(s.t){leaveTo(false);return;}
  if(s.sid===session.sid) return;
+ ntClose(true); /* 다른 학생의 공지 창이 남지 않게 닫습니다 */
  objUrls.forEach(function(u){URL.revokeObjectURL(u);}); objUrls=[];
  hidden={}; curLevel=null; vLevel=null; pSel=null; tSel=null;
  if(restore()) route('hub',true); else leave();
 }
-window.addEventListener('storage',function(e){if(e.key===SKEY){syncSess(); spRefresh();}});
+window.addEventListener('storage',function(e){if(e.key===SKEY){syncSess(); spRefresh();} else if(e.key===NKEY) ntBadge(); /* 다른 탭에서 공지를 읽으면 숫자를 맞춥니다 */});
 /* 말하기 계정 확인이 끝나기 전에 이 페이지를 닫거나 떠나면 확인이 끊깁니다. "확인 중"으로 남겨 두면 말하기 연습이 오지 않을 결과를 기다리므로 "연결하지 못함"으로 바꿉니다 */
 window.addEventListener('pagehide',function(){var z=readSess(); if(z&&!z.t&&!z.sp&&z.spc==='wait'){z.spc='net';writeSess(z);}});
 window.addEventListener('pageshow',function(e){if(e.persisted) syncSess();});
@@ -885,7 +1122,7 @@ function viewReport(){
  var hasHa=(d.exams||[]).concat(d.reports||[]).some(function(x){return !isZ(lvOf(x,d));}), hasPrep=(d.results||[]).length>0||(d.exams||[]).concat(d.reports||[]).some(function(x){return isZ(lvOf(x,d));}), hasVoka=(d.voka||[]).length>0, hasGr=Array.isArray(d.grammatik), hasTr=(d.training||[]).length>0, tab=hasHa?'ha':hasVoka?'voka':hasGr?'gr':hasPrep?'res':hasTr?'tr':'ha', ncol=4+(hasGr?1:0)+(hasTr?1:0), ACH=window.HAAchieve, banner='';
  /* 레벨 도달 예상(성취 평가): 과제 기록으로 계산해 이름 아래에 보여 줍니다. 계산에 실패해도 다른 화면은 그대로 열립니다 */
  if(ACH){ACH.reset(); try{banner=ACH.topHtml(d)||'';}catch(e){banner='';}}
- var h='<div class="vhead"><div class="row"><div><div class="who">'+esc(d.name)+'</div><div class="lv">현재 레벨 '+esc(d.level)+'</div></div><div>'+(adminKeep?'<button class="btn" id="bk">관리자 화면으로</button> ':'<button class="btn" id="hm">처음 화면</button> ')+'<button class="btn" id="out">로그아웃</button></div></div></div>'+banner;
+ var h='<div class="vhead"><div class="row"><div><div class="who">'+esc(d.name)+'</div><div class="lv">현재 레벨 '+esc(d.level)+'</div></div><div class="hb">'+(adminKeep?'<button class="btn" id="bk">관리자 화면으로</button>':'<button class="btn" id="hm">처음 화면</button>')+ntBtn()+'<button class="btn" id="out">로그아웃</button></div></div></div>'+banner;
  h+='<div class="mtabs" id="mt" role="tablist" aria-label="리포트 종류" style="grid-template-columns:repeat('+(ncol>4?3:ncol)+',1fr)">'
   +(hasGr?'<button type="button" class="mtab" role="tab" data-t="gr" aria-selected="'+(tab==='gr')+'">GRAMMATIK</button>':'')
   +'<button type="button" class="mtab" role="tab" data-t="ha" aria-selected="'+(tab==='ha')+'">과제 첨삭</button><button type="button" class="mtab" role="tab" data-t="voka" aria-selected="'+(tab==='voka')+'">VOKA</button><button type="button" class="mtab" role="tab" data-t="res" aria-selected="'+(tab==='res')+'">시험 준비</button>'+(hasTr?'<button type="button" class="mtab" role="tab" data-t="tr" aria-selected="'+(tab==='tr')+'">TRAINING</button>':'')+'<button type="button" class="mtab" role="tab" data-t="ach" aria-selected="false">성취 평가</button></div>';
@@ -1433,6 +1670,7 @@ function previewStudent(data){
 }
 function leave(){leaveTo(true);}
 function leaveTo(clear){ /* clear=false: 다른 탭에서 선생님 통과 로그인을 남긴 경우. 그 값은 지우지 않고 이 탭만 로그인 화면으로 돌립니다 */
+ ntClose(true);
  if(window.HAAdmin) window.HAAdmin.close();
  adminKeep=null; session=null; hidden={}; curLevel=null; vLevel=null; pSel=null; tSel=null;
  objUrls.forEach(function(u){URL.revokeObjectURL(u);}); objUrls=[];
@@ -1441,7 +1679,8 @@ function leaveTo(clear){ /* clear=false: 다른 탭에서 선생님 통과 로�
  viewLogin(); window.scrollTo(0,0);
 }
 
-window.HA={app:app,$:$,esc:esc,deriveId:deriveId,decryptBundle:decryptBundle,leave:leave,preview:previewStudent,session:function(){return session;},spApi:SP_API,b64e:b64e,learn:LEARN,teacherSess:teacherSess};
+window.HA={app:app,$:$,esc:esc,deriveId:deriveId,decryptBundle:decryptBundle,leave:leave,preview:previewStudent,session:function(){return session;},spApi:SP_API,b64e:b64e,learn:LEARN,teacherSess:teacherSess,
+ notice:{show:ntShow,close:ntClose,item:ntItem,norm:ntNorm,set:ntSet,mode:function(){return ntMode;}}};
 /* 다른 학습 앱(SODA GRAMMATIK 등)이 로그인 확인을 위해 보낸 경우: 주소의 ?next=(같은 사이트 안의 경로)로 로그인 뒤 돌아갑니다.
    relogin=1이면 저장된 로그인이 있어도 비밀번호를 다시 받습니다(학생 파일이 새로 저장되어 저장된 키로 열리지 않을 때) */
 var Q=new URLSearchParams(location.search), BACK=Q.get('next')||'', RELOGIN=Q.get('relogin')==='1';
@@ -1517,6 +1756,6 @@ else if(restore()) route(hashView()||'hub',true); else{if(location.hash) setUrl(
  mount(); new MutationObserver(mount).observe(document.getElementById('app'),{childList:true});
 })();
 </script>
-<script src="admin.js?v=9"></script>
+<script src="admin.js?v=10"></script>
 </body>
 </html>

@@ -51,6 +51,15 @@
   python3 tools/hareport.py show --id 김민서 --password 학생비밀번호
   python3 tools/hareport.py resize-decoys --admin-password 관리비밀번호
       관리자 파일에 기록된 가짜 파일의 크기를 30KB~900KB로 다시 정합니다. 학생 파일이 커져 눈에 띌 때 실행합니다.
+  python3 tools/hareport.py add-notice --title "제목" (--body "내용" | --body-file 공지.txt) [--to "B1,B2"] [--pin] [--date 2026-11-15]
+      공지를 notices.json 에 넣습니다. 학생 화면 머리글의 「공지사항」에 보이고, 읽지 않은 학생에게는 버튼 옆에 숫자가 나옵니다.
+      --to 를 생략하면 모든 학생이 대상입니다(레벨: A2, B1, B2, GRAMMATIK, ZERTIFIKAT A2, ZERTIFIKAT B1, ZERTIFIKAT B2, SNU).
+      --pin 은 중요 공지(맨 위 고정, 30일이 지나도 아직 열어 보지 않은 학생에게 새 공지로 셈)입니다.
+      notices.json 은 공개 파일입니다. 학생 이름이나 연락처는 쓰지 않습니다. 커밋하고 푸시해야 학생 화면에 나타납니다.
+  python3 tools/hareport.py edit-notice --nid 공지id [--title 제목] [--body 내용 | --body-file 공지.txt] [--to "B1"] [--pin | --unpin]
+      공지를 고칩니다. --to "" 는 모든 학생입니다. 학생의 읽음 표시는 그대로 둡니다.
+  python3 tools/hareport.py remove-notice --nid 공지id
+  python3 tools/hareport.py list-notices
 
 레벨: 시험과 리포트는 레벨(A1, A2, B1, B2, GRAMMATIK, ZERTIFIKAT A2, ZERTIFIKAT B1, ZERTIFIKAT B2, SNU)별로 저장하고, 회차 번호(n)는 레벨 안에서 셉니다. 로그인한 뒤 학생이 레벨 버튼으로 골라 봅니다.
   - exam.json 의 level 이나 add-report 의 --level 을 생략하면 학생의 기본 레벨로 저장합니다.
@@ -559,6 +568,131 @@ def cmd_show(a):
     print(json.dumps(b, ensure_ascii=False, indent=1))
 
 
+NOTICES = ROOT / 'notices.json'
+NOTICE_TO = ['A2', 'B1', 'B2', 'GRAMMATIK', 'ZERTIFIKAT A2', 'ZERTIFIKAT B1', 'ZERTIFIKAT B2', 'SNU']  # 관리자 화면의 레벨·반 목록과 같은 순서
+
+
+def read_notices():
+    if not NOTICES.exists():
+        return []
+    j = json.loads(NOTICES.read_text(encoding='utf-8'))
+    return list(j.get('notices', [])) if isinstance(j, dict) else list(j)
+
+
+def write_notices(lst):
+    # 학생 화면과 같은 순서로 저장합니다: 중요 공지가 먼저, 그다음 올린 날짜가 늦은 순서.
+    lst.sort(key=lambda n: (n.get('date', ''), n.get('id', '')), reverse=True)
+    lst.sort(key=lambda n: 0 if n.get('pin') else 1)
+    NOTICES.write_text(json.dumps({'v': 1, 'notices': lst}, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+
+
+def notice_to(s):
+    got = []
+    for x in re.split(r'[,/]', s or ''):
+        x = re.sub(r'\s+', ' ', unicodedata.normalize('NFKC', x)).strip().upper()
+        if not x or x in ('ALL', '전체'):
+            continue
+        if x not in NOTICE_TO:
+            sys.exit('대상은 %s 중에서 쉼표로 구분해 씁니다. 모든 학생이면 --to 를 생략합니다.' % ', '.join(NOTICE_TO))
+        got.append(x)
+    return [x for x in NOTICE_TO if x in got]
+
+
+def notice_body(a):
+    t = Path(a.body_file).read_text(encoding='utf-8') if a.body_file else a.body
+    if t is None:
+        return None
+    t = t.replace('\r\n', '\n').replace('\r', '\n')
+    return '\n'.join(line.rstrip() for line in t.split('\n')).strip()
+
+
+def notice_title(t):
+    return re.sub(r'\s+', ' ', t or '').strip()
+
+
+def notice_id():
+    # 관리자 화면과 같은 형식: n + 만든 시각(밀리초, 36진수) + 무작위 4자리
+    n, s = int(datetime.now().timestamp() * 1000), ''
+    while n:
+        n, r = divmod(n, 36)
+        s = '0123456789abcdefghijklmnopqrstuvwxyz'[r] + s
+    return 'n' + s + secrets.token_hex(2)
+
+
+def notice_line(n):
+    return '%s\t%s\t%s\t%s%s' % (n.get('id'), n.get('date', ''), ', '.join(n.get('to') or []) or '모든 학생', n.get('title', ''), '\t[중요]' if n.get('pin') else '')
+
+
+def cmd_notice_add(a):
+    title, body = notice_title(a.title), notice_body(a)
+    if not title or not body:
+        sys.exit('--title 과 --body(또는 --body-file)에 내용을 주십시오.')
+    date = a.date or today_kst()
+    if not re.match(r'^\d{4}-\d{2}-\d{2}$', date):
+        sys.exit('--date 는 2026-11-15 형식입니다.')
+    n = {'id': notice_id(), 'date': date, 'title': title, 'body': body}
+    to = notice_to(a.to)
+    if to:
+        n['to'] = to
+    if a.pin:
+        n['pin'] = True
+    lst = read_notices()
+    lst.append(n)
+    write_notices(lst)
+    print('공지 등록:', notice_line(n))
+    print('notices.json 을 커밋하고 푸시하면 학생 화면에 1~2분 뒤에 나타납니다.')
+
+
+def cmd_notice_edit(a):
+    lst = read_notices()
+    n = next((x for x in lst if x.get('id') == a.nid), None)
+    if not n:
+        sys.exit('없는 공지 id입니다. list-notices 로 확인하십시오.')
+    before = json.dumps(n, ensure_ascii=False, sort_keys=True)
+    if a.title is not None:
+        if not notice_title(a.title):
+            sys.exit('--title 이 비어 있습니다.')
+        n['title'] = notice_title(a.title)
+    body = notice_body(a)
+    if body is not None:
+        if not body:
+            sys.exit('--body 가 비어 있습니다.')
+        n['body'] = body
+    if a.to is not None:
+        to = notice_to(a.to)
+        if to:
+            n['to'] = to
+        else:
+            n.pop('to', None)
+    if a.pin:
+        n['pin'] = True
+    if a.unpin:
+        n.pop('pin', None)
+    if json.dumps(n, ensure_ascii=False, sort_keys=True) == before:
+        print('바뀐 내용이 없습니다.')
+        return
+    if n.get('date') != today_kst():
+        n['upd'] = today_kst()
+    write_notices(lst)
+    print('공지 수정:', notice_line(n))
+
+
+def cmd_notice_remove(a):
+    lst = read_notices()
+    left = [x for x in lst if x.get('id') != a.nid]
+    if len(left) == len(lst):
+        sys.exit('없는 공지 id입니다. list-notices 로 확인하십시오.')
+    write_notices(left)
+    print('공지 삭제: %s (남은 공지 %d개)' % (a.nid, len(left)))
+
+
+def cmd_notice_list(a):
+    lst = read_notices()
+    for n in lst:
+        print(notice_line(n))
+    print('공지 %d개' % len(lst))
+
+
 NOTIFY_CONFIG = os.path.expanduser('~/.config/hareport/notify.json')
 NOTIFY_KINDS = {'첨삭': '첨삭 리포트', 'voka': 'VOKA 리포트', 'grammatik': 'GRAMMATIK 리포트', '시험': '시험 결과', 'training': 'TRAINING 리포트'}
 
@@ -632,6 +766,13 @@ def main():
     sp = sub.add_parser('set-sprechen'); [sp.add_argument('--' + k, required=True) for k in ('id', 'password')]
     sp.add_argument('--sp-id'); sp.add_argument('--sp-password'); sp.add_argument('--clear', action='store_true'); sp.set_defaults(f=cmd_sprechen)
     s = sub.add_parser('show'); [s.add_argument('--' + k, required=True) for k in ('id', 'password')]; s.set_defaults(f=cmd_show)
+    na = sub.add_parser('add-notice'); na.add_argument('--title', required=True); na.add_argument('--to'); na.add_argument('--pin', action='store_true'); na.add_argument('--date')
+    nb = na.add_mutually_exclusive_group(required=True); nb.add_argument('--body'); nb.add_argument('--body-file'); na.set_defaults(f=cmd_notice_add)
+    ne = sub.add_parser('edit-notice'); ne.add_argument('--nid', required=True); ne.add_argument('--title'); ne.add_argument('--to')
+    eb = ne.add_mutually_exclusive_group(); eb.add_argument('--body'); eb.add_argument('--body-file')
+    ep = ne.add_mutually_exclusive_group(); ep.add_argument('--pin', action='store_true'); ep.add_argument('--unpin', action='store_true'); ne.set_defaults(f=cmd_notice_edit)
+    nr = sub.add_parser('remove-notice'); nr.add_argument('--nid', required=True); nr.set_defaults(f=cmd_notice_remove)
+    nl = sub.add_parser('list-notices'); nl.set_defaults(f=cmd_notice_list)
     a = p.parse_args(); a.f(a)
 
 

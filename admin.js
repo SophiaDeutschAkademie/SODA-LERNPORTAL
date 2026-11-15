@@ -215,7 +215,24 @@ var CSS='.wrap.wide{max-width:1280px}.at td:first-child{white-space:nowrap}.at a
 +'.algrid li.big a:hover,.algrid li.big a:focus-visible{background:#3B4863;border-color:#3B4863}'
 +'.alpw{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-top:10px;font-size:13px;color:var(--mute)}.alpw b{color:var(--ink);font-weight:600}#almsg:empty{display:none}'
 +'.algrid .off{border-style:dashed;background:transparent;color:var(--mute)}@media(max-width:820px){.algrid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.algrid small{display:none}.algrid a,.algrid .off{min-height:44px;padding:8px 10px}.algrid b{font-size:13.5px}}'
-+'.thr{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;color:var(--mute)}.thr input{width:60px;border:1.5px solid var(--line);border-radius:8px;padding:4px 6px;font:inherit;font-size:14px}';
++'.thr{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;color:var(--mute)}.thr input{width:60px;border:1.5px solid var(--line);border-radius:8px;padding:4px 6px;font:inherit;font-size:14px}'
+/* 공지사항 관리 창 */
++'.nt-an{margin:0 0 12px;font-size:13px;line-height:1.65}.nt-an b{color:var(--ink)}'
++'.nt-new{display:block;width:100%;margin:0 0 4px;padding:11px}'
++'.nt-form{background:#fff;border:1.5px solid var(--acc);border-radius:12px;padding:14px 16px 16px;margin:0 0 6px}'
++'.nt-form h3{margin:0 0 2px;font-size:15.5px}'
++'.nt-form .fl{display:block;font-weight:600;font-size:13px;margin:12px 0 5px}'
++'.nt-form input[type=text],.nt-form textarea{display:block;width:100%;border:1.5px solid var(--line);border-radius:10px;padding:9px 11px;font:inherit;font-size:15px;line-height:1.6;background:#fff;color:var(--ink)}'
++'.nt-form textarea{min-height:170px;resize:vertical;line-height:1.75}'
++'.nt-form input[type=text]:focus,.nt-form textarea:focus{outline:2px solid var(--accbg);border-color:var(--acc)}'
++'.nt-to{display:flex;flex-wrap:wrap;gap:4px 16px}'
++'.nt-form .chk{display:inline-flex;align-items:center;gap:6px;font-size:14px;line-height:1.6;cursor:pointer}'
++'.nt-form .chk input{width:16px;height:16px;margin:0;accent-color:var(--acc)}'
++'.nt-form .chk.pin{display:flex;align-items:flex-start;margin-top:14px}.nt-form .chk.pin input{margin-top:4px}.nt-form .chk.pin small{display:block;color:var(--mute);font-size:12.5px}'
++'.nt-fb{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}'
++'.nt-tools{display:flex;gap:6px;justify-content:flex-end;margin:0 16px 14px}'
++'.nt-lh{margin:16px 2px 8px;font-size:13.5px;color:var(--mute);font-weight:600}'
++'#namsg:empty{display:none}#namsg{margin:6px 2px 4px}';
 function injectStyle(){
  if(styled) return;
  var s=document.createElement('style'); s.textContent=CSS; document.head.appendChild(s); styled=true;
@@ -402,6 +419,141 @@ function probeLinks(){
  });
 }
 
+/* 공지사항 관리: 머리글의 「공지사항」 버튼으로 엽니다(index.html의 공지 창을 넓게 씀). 공지는 저장소의 notices.json에 GitHub API로 커밋합니다(토큰 필요).
+   학생 화면은 index.html의 공지사항(NT)이 이 파일을 읽어 보여 줍니다. notices.json은 공개 파일이라 학생 이름이나 연락처는 쓰지 않습니다.
+   올리기 · 고치기 · 지우기는 저장소의 최신 notices.json을 다시 읽은 뒤 그 위에 바꿉니다. 커밋 메시지는 "공지 등록" · "공지 수정" · "공지 삭제"입니다. */
+var NPATH='notices.json', NA={list:[],state:'idle',edit:null,msg:'',err:false,busy:false};
+function NT(){return H().notice;}
+function nsay(m,err){NA.msg=m||''; NA.err=!!err; var e=$('#namsg'); if(e){e.className='msg'+(err?' err':''); e.textContent=NA.msg;}}
+function nBusy(b){
+ NA.busy=b;
+ document.querySelectorAll('#nt-bd button,#nt-bd input,#nt-bd textarea').forEach(function(x){if(!x.hasAttribute('data-ntx')) x.disabled=b;});
+}
+function noticeId(){return 'n'+Date.now().toString(36)+hex10().slice(0,4);}
+async function readNotices(){
+ if(token){ /* 토큰이 있으면 저장소에서 바로 읽습니다. GitHub Pages 사본은 몇 분 늦을 수 있습니다 */
+  try{var f=await gh('contents/'+NPATH+'?ref='+GH.branch); return JSON.parse(new TextDecoder().decode(b64dec(f.content||'')));}
+  catch(e){if(e&&e.status===404) return {notices:[]}; if(!(e&&(e.status===401||e.status===403))) throw e;}
+ }
+ var r=await fetch(NPATH+'?t='+Date.now(),{cache:'no-store'});
+ if(r.status===404) return {notices:[]};
+ if(!r.ok){var x=new Error('http'+r.status); x.status=r.status; throw x;}
+ return await r.json();
+}
+async function writeNotices(list,msg){
+ var out={v:1,notices:NT().norm({notices:list}).map(function(n){
+  var o={id:n.id,date:n.date,title:n.title,body:n.body}; if(n.upd) o.upd=n.upd; if(n.to.length) o.to=n.to.slice(); if(n.pin) o.pin=true; return o;
+ })};
+ await ghCommit([{path:NPATH,bytes:new TextEncoder().encode(JSON.stringify(out,null,1)+'\n')}],msg,function(){nsay('저장소에 올리고 있습니다.');});
+ NA.list=NT().set(out); NA.state='ok';
+}
+async function openNotices(){
+ if(!A||!NT()) return;
+ NA.edit=null; NA.msg=''; NA.err=false;
+ NT().show({title:'공지사항 관리',wide:true,mode:'admin',render:renderNotices});
+ await loadNotices();
+}
+async function loadNotices(){
+ NA.state='load'; renderNotices();
+ try{NA.list=NT().set(await readNotices()); NA.state='ok';}
+ catch(e){NA.state='err'; nsay(msgOf(e),true);}
+ renderNotices();
+}
+function nfind(id){return NA.list.filter(function(x){return x.id===id;})[0]||null;}
+function formGet(){
+ var f=$('#naf'); if(!f) return null;
+ return {edit:f.getAttribute('data-edit'),t:$('#nat').value,b:$('#nab').value,p:$('#nap').checked,
+  to:Array.prototype.filter.call(document.querySelectorAll('#nato input'),function(x){return x.checked&&x.value;}).map(function(x){return x.value;})};
+}
+function formHtml(n,fs){
+ var t=fs?fs.t:(n?n.title:''), b=fs?fs.b:(n?n.body:''), to=fs?fs.to:(n?n.to:[]), p=fs?fs.p:!!(n&&n.pin);
+ return '<div class="nt-form" id="naf" data-edit="'+esc(NA.edit)+'"><h3>'+(n?'공지 고치기':'새 공지')+'</h3>'
+  +'<label class="fl" for="nat">제목</label><input id="nat" type="text" maxlength="120" autocomplete="off" value="'+esc(t)+'">'
+  +'<label class="fl" for="nab">내용</label><textarea id="nab" maxlength="5000" placeholder="줄바꿈은 그대로 보이고, https로 시작하는 주소는 링크가 됩니다.">'+esc(b)+'</textarea>'
+  +'<span class="fl" id="natl">대상</span><div class="nt-to" id="nato" role="group" aria-labelledby="natl"><label class="chk"><input type="checkbox" value=""'+(to.length?'':' checked')+'> 모든 학생</label>'
+  +LEVELS.map(function(l){return '<label class="chk"><input type="checkbox" value="'+esc(l)+'"'+(to.indexOf(l)>=0?' checked':'')+'> '+esc(l)+'</label>';}).join('')+'</div>'
+  +'<label class="chk pin"><input type="checkbox" id="nap"'+(p?' checked':'')+'><span>중요 공지로 맨 위에 고정<small>30일이 지나도 아직 열어 보지 않은 학생에게는 새 공지로 셉니다(나중에 들어온 학생 포함).</small></span></label>'
+  +'<div class="nt-fb"><button type="button" class="btn main" data-na="save">'+(n?'고친 내용 올리기':'공지 올리기')+'</button><button type="button" class="btn" data-na="cancel">취소</button></div></div>';
+}
+function renderNotices(){
+ var bd=$('#nt-bd'); if(!bd||!A||!NT()||NT().mode()!=='admin') return;
+ var fs=formGet(); if(fs&&fs.edit!==String(NA.edit)) fs=null; /* 다시 그릴 때 쓰던 글을 지우지 않습니다 */
+ var h='<p class="note nt-an">학생은 로그인한 뒤 머리글의 「공지사항」에서 봅니다. 새 공지는 버튼 옆에 숫자로 표시됩니다. 대상을 고르지 않으면 모든 학생에게 보이고, 올린 뒤 학생 화면에 나타나기까지 1~2분 걸립니다.<br><b>공지는 저장소에 공개 파일(notices.json)로 올라갑니다.</b> 학생 이름, 연락처, 계좌번호 같은 정보는 쓰지 마십시오.</p>';
+ if(NA.edit) h+=formHtml(NA.edit==='new'?null:nfind(NA.edit),fs);
+ else h+='<button type="button" class="btn main nt-new" data-na="new">새 공지 쓰기</button>';
+ h+='<div class="msg'+(NA.err?' err':'')+'" id="namsg" role="status">'+esc(NA.msg)+'</div>';
+ if(NA.state==='load'||NA.state==='idle') h+='<div class="nt-empty" role="status">공지를 불러오고 있습니다.</div>';
+ else if(NA.state==='err') h+='<div class="nt-empty">공지를 불러오지 못했습니다.<br><button type="button" class="btn" data-na="reload">다시 불러오기</button></div>';
+ else if(!NA.list.length) h+='<div class="nt-empty">올린 공지가 없습니다. 「새 공지 쓰기」로 첫 공지를 올리십시오.</div>';
+ else{
+  h+='<h3 class="nt-lh">올린 공지 '+NA.list.length+'개</h3>';
+  NA.list.forEach(function(n){
+   h+=NT().item(n,{open:true,tools:'<div class="nt-tools"><button type="button" class="btn sm" data-na="edit" data-id="'+esc(n.id)+'">고치기</button><button type="button" class="btn sm dng" data-na="del" data-id="'+esc(n.id)+'">지우기</button></div>'});
+  });
+ }
+ bd.innerHTML=h; bd.onclick=onNotice; bd.onchange=onNoticeTo;
+ if(NA.busy) nBusy(true);
+}
+function onNotice(e){
+ var b=e.target.closest('[data-na]'); if(!b||NA.busy) return;
+ var a=b.getAttribute('data-na'), id=b.getAttribute('data-id');
+ if(a==='new'||a==='edit'){
+  NA.edit=a==='new'?'new':id; nsay(''); renderNotices();
+  var bd=$('#nt-bd'); if(bd) bd.scrollTop=0; var t=$('#nat'); if(t) t.focus();
+ }
+ else if(a==='cancel'){NA.edit=null; nsay(''); renderNotices();}
+ else if(a==='save') saveNotice();
+ else if(a==='del') deleteNotice(id);
+ else if(a==='reload') loadNotices();
+}
+/* 대상: 「모든 학생」과 레벨은 함께 고를 수 없습니다. 아무것도 고르지 않으면 「모든 학생」입니다 */
+function onNoticeTo(e){
+ var c=e.target; if(!c.closest||!c.closest('#nato')) return;
+ var all=$('#nato input[value=""]'), lv=Array.prototype.slice.call(document.querySelectorAll('#nato input:not([value=""])'));
+ if(c===all){if(all.checked) lv.forEach(function(x){x.checked=false;}); else if(!lv.some(function(x){return x.checked;})) all.checked=true;}
+ else all.checked=!lv.some(function(x){return x.checked;});
+}
+function noTokenMsg(what){return '공지를 '+what+' GitHub 토큰이 필요합니다. 이 창을 닫고 관리자 화면 아래 「학생 관리 → GitHub 토큰」에 입력하십시오.';}
+async function saveNotice(){
+ if(working||NA.busy) return;
+ var fs=formGet(); if(!fs) return;
+ var title=fs.t.replace(/\s+/g,' ').trim(), body=fs.b.replace(/\r\n?/g,'\n').replace(/[ \t]+$/gm,'').trim(), eid=NA.edit==='new'?null:NA.edit;
+ if(!title){nsay('제목을 입력하십시오.',true); $('#nat').focus(); return;}
+ if(!body){nsay('내용을 입력하십시오.',true); $('#nab').focus(); return;}
+ if(!token){nsay(noTokenMsg('올리려면'),true); return;}
+ busy(true); nBusy(true);
+ try{
+  nsay('저장소의 공지를 확인하고 있습니다.');
+  var list=NT().norm(await readNotices()), today=ymd(new Date()), n;
+  if(eid){
+   n=list.filter(function(x){return x.id===eid;})[0];
+   if(!n) throw new Error('이 공지는 저장소에서 이미 지워졌습니다. 창을 닫았다가 다시 여십시오.');
+   if(n.title===title&&n.body===body&&n.pin===fs.p&&n.to.join('|')===fs.to.join('|')){NA.edit=null; NA.list=NT().set({notices:list}); NA.state='ok'; nsay('바뀐 내용이 없습니다.'); return;}
+   n.title=title; n.body=body; n.to=fs.to; n.pin=fs.p; if(n.date!==today) n.upd=today;
+  }else list.push({id:noticeId(),date:today,title:title,body:body,to:fs.to,pin:fs.p});
+  await writeNotices(list,eid?'공지 수정':'공지 등록');
+  NA.edit=null;
+  nsay(eid?'공지를 고쳤습니다. 학생 화면에는 1~2분 뒤에 반영됩니다.':'공지를 올렸습니다. 학생 화면에는 1~2분 뒤에 나타납니다.');
+ }catch(e){nsay(msgOf(e),true);}
+ finally{busy(false); nBusy(false); renderNotices();}
+}
+async function deleteNotice(id){
+ if(working||NA.busy) return;
+ var n=nfind(id); if(!n) return;
+ if(!token){nsay(noTokenMsg('지우려면'),true); return;}
+ if(!window.confirm('「'+n.title+'」 공지를 지웁니다.\n학생 화면에서도 사라지고 되돌릴 수 없습니다. 계속하시겠습니까?')) return;
+ busy(true); nBusy(true);
+ try{
+  nsay('저장소의 공지를 확인하고 있습니다.');
+  var list=NT().norm(await readNotices()), left=list.filter(function(x){return x.id!==id;});
+  if(left.length===list.length){NA.list=NT().set({notices:list}); NA.state='ok'; nsay('이 공지는 이미 지워져 있습니다.'); return;}
+  await writeNotices(left,'공지 삭제');
+  if(NA.edit===id) NA.edit=null;
+  nsay('공지를 지웠습니다. 학생 화면에서는 1~2분 뒤에 사라집니다.');
+ }catch(e){nsay(msgOf(e),true);}
+ finally{busy(false); nBusy(false); renderNotices();}
+}
+
 function open(o){
  var keep=!!(o&&o.keep&&A&&S); /* 학생 화면에서 돌아올 때는 불러온 현황을 그대로 씁니다 */
  if(!keep){
@@ -413,7 +565,7 @@ function open(o){
  }
  injectStyle();
  var app=H().app; app.className='wrap wide'; $('#top').hidden=false;
- var h='<div class="vhead"><div class="row"><div><div class="who">관리자</div><div class="lv">'+esc(A.name||'')+'</div></div><button class="btn" id="out">로그아웃</button></div></div>';
+ var h='<div class="vhead"><div class="row"><div><div class="who">관리자</div><div class="lv">'+esc(A.name||'')+'</div></div><div class="hb"><button type="button" class="btn ntc" data-ntc aria-haspopup="dialog">공지사항</button><button class="btn" id="out">로그아웃</button></div></div></div>';
  h+=linksHtml();
  h+='<div class="asum" id="asum"></div>';
  h+='<section class="card asec"><div class="rhead"><h2 style="margin:0">학생 현황</h2><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
@@ -473,6 +625,7 @@ function open(o){
 }
 function close(){
  gen++; A=null; S=null; st={}; shown={}; pending={}; token=''; working=false;
+ NA={list:[],state:'idle',edit:null,msg:'',err:false,busy:false};
  var a=H()&&H().app; if(a) a.className='wrap';
 }
 
@@ -833,5 +986,5 @@ async function removeStudent(s){
  finally{busy(false);renderTable();}
 }
 
-window.HAAdmin={open:open,close:close};
+window.HAAdmin={open:open,close:close,notices:openNotices};
 })();
