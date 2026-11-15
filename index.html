@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<script src="sync.js"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>Sophia Deutsch Akademie 학습 포탈</title>
@@ -124,7 +125,7 @@ table.tb{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}
 .rhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:6px}
 iframe#rf,iframe#rfz,iframe#vf,iframe#gf,iframe#xf,iframe#trf{display:block;width:100%;border:1px solid var(--line);border-radius:14px;background:#f6f5f2;min-height:420px}
 .foot{color:var(--mute);font-size:12.5px;text-align:center;margin-top:28px}
-.spst{color:var(--mute);font-size:13px;line-height:1.6;text-align:center;margin:20px 0 0}.spst:empty{display:none}.spst.warn{color:var(--bad)}.spst+.foot{margin-top:10px}
+.spst{color:var(--mute);font-size:13px;line-height:1.6;text-align:center;margin:20px 0 0}.spst:empty{display:none}.spst.warn{color:var(--bad)}.spst+.spst{margin-top:6px}.spst+.foot{margin-top:10px}
 .mtabs{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:0 0 12px}
 .mtab{border:1.5px solid var(--line);background:var(--card);border-radius:10px;padding:8px 8px;font-weight:700;font-size:14px;cursor:pointer;text-align:center}
 .mtab:hover,.mtab:focus-visible{border-color:var(--acc);outline:none}
@@ -507,7 +508,20 @@ function spText(){
  if(s.spc==='busy') return ['warn','말하기 연습: 말하기 서버가 잠시 로그인을 막고 있어 계정을 확인하지 못했습니다. 몇 분 뒤에 로그아웃한 다음 다시 로그인해 주십시오.'];
  return ['warn','말하기 연습: 계정이 연결되어 있지 않습니다. 로그아웃한 뒤 다시 로그인하면 확인합니다.'];
 }
-function spLine(){var t=spText();return '<p class="spst'+(t[0]?' '+t[0]:'')+'" id="spst" role="status">'+esc(t[1])+'</p>';}
+function spLine(){var t=spText();return '<p class="spst'+(t[0]?' '+t[0]:'')+'" id="spst" role="status">'+esc(t[1])+'</p>'+syLine();}
+/* 학습 저장 상태 줄: 푼 문제가 서버에 저장되는지 보여 줍니다(sync.js) */
+function hhmm(t){var d=new Date(t);return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);}
+function syText(){
+ var Y=window.SodaSync, x=Y&&Y.status?Y.status():null, s=readSess(); if(!x||!s||s.t) return ['',''];
+ if(x.auth) return ['warn','학습 저장: 로그인을 확인하지 못해 서버에 저장하지 못했습니다. 로그아웃한 뒤 다시 로그인해 주십시오. 푼 내용은 이 기기에 남아 있습니다.'];
+ if(x.err&&!x.at) return ['','학습 저장: 저장 서버에 연결하지 못했습니다. 푼 내용은 이 기기에 저장되고, 연결되면 서버에 올립니다.']; /* 한 번도 연결된 적이 없으면(서버 준비 전 등) 빨간색으로 보이지 않습니다 */
+ if(x.err) return ['warn','학습 저장: 지금은 저장 서버에 연결하지 못했습니다(마지막 확인 '+hhmm(x.at)+'). 연결되면 남은 내용을 올립니다.'];
+ if(!x.at) return ['','학습 저장: 서버에서 학습 기록을 불러오고 있습니다.'];
+ return ['','학습 저장: 푼 문제가 서버에 저장되어 다른 기기에서 로그인해도 이어서 풀 수 있습니다(마지막 확인 '+hhmm(x.at)+').'];
+}
+function syLine(){var t=syText();return t[1]?'<p class="spst'+(t[0]?' '+t[0]:'')+'" id="syst" role="status">'+esc(t[1])+'</p>':'';}
+function syRefresh(){var el=$('#syst'),t=syText(); if(!el){var sp=$('#spst'); if(sp&&t[1]) sp.insertAdjacentHTML('afterend',syLine()); return;} el.className='spst'+(t[0]?' '+t[0]:''); el.textContent=t[1];}
+window.addEventListener('soda-sync',syRefresh);
 function spRefresh(){var el=$('#spst'), t; if(!el) return; t=spText(); el.className='spst'+(t[0]?' '+t[0]:''); el.textContent=t[1];}
 function spLog(){try{return JSON.parse(localStorage.getItem(SPN)||'{}')||{};}catch(e){return {};}}
 function spLogSet(sid,t){
@@ -649,8 +663,15 @@ function viewLogin(opt){
    session={data:o.data,sid:sid,pw:pwv,kb:o.bits}; viewReport(); return;
   }
   session={data:o.data,sid:sid,pw:null,kb:o.bits,uid:uidv};
+  /* 학습 저장(sync.js): 이 기기에 다른 학생의 로그인이 남아 있으면 그 학생의 남은 내용을 먼저 올린 뒤 이 기기의 주인을 바꿉니다 */
+  var SY=window.SodaSync, prevS=readSess();
+  if(SY){
+   if(prevS&&!prevS.t&&prevS.sid!==sid){msg.textContent='이 기기에 남아 있는 앞 학생의 학습 기록을 저장하고 있습니다.';try{await SY.flushFor(prevS,4000);}catch(e){}}
+   try{await SY.prepare(sid);}catch(e){}
+  }
   saveSess(true); portalSeen(true);
   var tk=syncTok(true);
+  var syn=SY?SY.login(8000,tk):null; /* 서버의 학습 기록을 받아 오고 이 기기에 남은 내용을 올립니다 */
   var cur=readSess();
   /* 이전 로그인에서 포탈 비밀번호로 연결해 둔 말하기 계정인데 방금 입력한 비밀번호와 다르면(비밀번호가 바뀐 경우) 새 비밀번호로 다시 확인합니다 */
   if(cur&&cur.sp&&cur.sp.src==='same'&&!spOf(o.data)&&cur.sp.pw!==spNorm(pwv)){cur.sp=null; writeSess(cur);}
@@ -658,8 +679,8 @@ function viewLogin(opt){
   if(opt.back){
    /* 다른 학습 앱으로 돌아가기 전에 말하기 계정 확인과 저장 토큰 받기가 끝나기를 기다립니다(최대 4.5초).
       바로 떠나면 확인이 도중에 끊겨, 이 로그인 동안 말하기 연습에서 다시 로그인하게 됩니다 */
-   msg.textContent='로그인했습니다. 잠시만 기다려 주십시오.';
-   await Promise.race([Promise.all(chk?[chk,tk]:[tk]),pause(4500)]);
+   msg.textContent=syn?'로그인했습니다. 학습 기록을 불러오고 있습니다. 잠시만 기다려 주십시오.':'로그인했습니다. 잠시만 기다려 주십시오.';
+   await Promise.race([Promise.all([chk,tk,syn]),pause(4500)]);
    if(chk){var z=readSess(); if(z&&z.sid===sid&&!z.sp&&z.spc==='wait') spMark(sid,'net');} /* 끝나지 않은 확인은 이 페이지를 떠나면 끊기므로 "확인 중"으로 남기지 않습니다 */
    location.replace(opt.back);return;
   }
@@ -1691,7 +1712,12 @@ function previewStudent(data){
  adminKeep=session.data; session.data=data; hidden={}; curLevel=null; vLevel=null; pSel=null; tSel=null; app.className='wrap';
  viewReport();
 }
-function leave(){leaveTo(true);}
+/* 로그아웃: 아직 서버에 올리지 않은 학습 기록을 먼저 올립니다(최대 3초) */
+function leave(){
+ var Y=window.SodaSync, s=readSess();
+ if(Y&&s&&!s.t&&isStudent()){var b=$('#out'); if(b){b.disabled=true;b.textContent='저장 중…';} Y.flush(3000).then(function(){leaveTo(true);},function(){leaveTo(true);}); return;}
+ leaveTo(true);
+}
 function leaveTo(clear){ /* clear=false: 다른 탭에서 선생님 통과 로그인을 남긴 경우. 그 값은 지우지 않고 이 탭만 로그인 화면으로 돌립니다 */
  ntClose(true);
  if(window.HAAdmin) window.HAAdmin.close();

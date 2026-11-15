@@ -14,6 +14,11 @@
    - POST /sync    {tok, app, rev, ch:[[키, 값 또는 null, 바꾼 시각]], cur}
                    바뀐 기록을 저장하고, 앱이 마지막으로 받은 번호(rev) 뒤에 다른 기기가 바꾼 기록을 돌려줍니다.
                    값이 null이면 지운 기록입니다. 다른 기기가 먼저 바꾼 기록은 덮어쓰지 않고 돌려주어 앱이 합치게 합니다.
+                   (VOKALAB이 씁니다. 기록을 합치는 규칙은 앱에 있습니다)
+   - POST /kv      {tok, now, since, cur?, items?:[{k, v, t}]}  → {ok, now, rev, items:[{k, v, t, r}], more, next?, rej?, skip?}
+                   그 밖의 모든 학습 앱이 쓰는 학습 저장(SODA-LERNPORTAL/sync.js). 앱이 localStorage에 둔 값을 키마다 그대로 저장합니다.
+                   같은 키는 나중에 고친 쪽(t, 기기 시계와 서버 시계의 차이(now)를 맞춘 시각)이 남고, 받아들이지 않은 값은 서버 값을 rej로 돌려줍니다.
+                   표 kv(값)와 kvrev(학생별 번호)를 씁니다. VOKALAB의 rec·head와는 따로입니다.
 
    학생 확인 방법은 말하기 서버와 같습니다. 포탈 로그인 키로 그 학생의 암호화 파일이 실제로 열려야 토큰을 줍니다.
    키는 저장하지 않습니다. 토큰에는 학생 파일 id만 들어 있고 13시간 동안 씁니다.
@@ -48,8 +53,9 @@ export default {
       if (request.method !== 'POST') return json({ error: 'method' }, 405, cors);
       if (origin && !allowed) return json({ error: 'origin' }, 403, cors);
       if (!env.DB) return json({ error: 'nodb', message: 'D1 바인딩(DB)이 없습니다.' }, 500, cors);
-      if (path !== '/token' && path !== '/sync') return json({ error: 'notfound' }, 404, cors);
+      if (path !== '/token' && path !== '/sync' && path !== '/kv') return json({ error: 'notfound' }, 404, cors);
       const body = await readBody(request);
+      if (path === '/kv') return await kv(body, env, cors);
       return path === '/token' ? await token(body, env, cors) : await sync(body, env, cors);
     } catch (e) {
       const status = (e && e.status) || 500;
@@ -104,7 +110,10 @@ function schema(env) {
       DB.prepare('CREATE TABLE IF NOT EXISTS sys (k TEXT PRIMARY KEY, v TEXT NOT NULL)'),
       DB.prepare('CREATE TABLE IF NOT EXISTS head (sid TEXT NOT NULL, app TEXT NOT NULL, rev INTEGER NOT NULL, up INTEGER NOT NULL, PRIMARY KEY (sid, app))'),
       DB.prepare('CREATE TABLE IF NOT EXISTS rec (sid TEXT NOT NULL, app TEXT NOT NULL, k TEXT NOT NULL, v TEXT, t INTEGER NOT NULL, r INTEGER NOT NULL, up INTEGER NOT NULL, PRIMARY KEY (sid, app, k))'),
-      DB.prepare('CREATE INDEX IF NOT EXISTS rec_r ON rec (sid, app, r, k)')
+      DB.prepare('CREATE INDEX IF NOT EXISTS rec_r ON rec (sid, app, r, k)'),
+      DB.prepare('CREATE TABLE IF NOT EXISTS kvrev (sid TEXT PRIMARY KEY, rev INTEGER NOT NULL DEFAULT 0, up INTEGER)'),
+      DB.prepare('CREATE TABLE IF NOT EXISTS kv (sid TEXT NOT NULL, k TEXT NOT NULL, v TEXT, t INTEGER NOT NULL, rev INTEGER NOT NULL, sz INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (sid, k))'),
+      DB.prepare('CREATE INDEX IF NOT EXISTS kv_rev ON kv (sid, rev, k)')
     ]).catch(e => { schemaReady = null; throw e; });
   }
   return schemaReady;
@@ -221,4 +230,91 @@ async function sync(b, env, cors) {
     chars += len;
   }
   return json({ rev, rows, acc, more, cur }, 200, cors);
+}
+
+/* ---------- 학습 저장: 모든 학습 앱의 localStorage 값 (/kv, SODA-LERNPORTAL/sync.js) ----------
+   - 학생 확인은 /sync와 같은 저장 토큰입니다.
+   - 값 하나(localStorage 키 하나)가 한 줄입니다. 저장할 때마다 학생별 번호(kvrev.rev)가 1씩 오르고,
+     기기는 자기가 받은 마지막 번호(since) 뒤의 줄만 받아 갑니다. 한 번호의 줄을 다 주지 못하고 끊기면 cur(키)부터 이어 줍니다.
+   - 같은 키를 두 기기가 고치면 나중에 고친 쪽이 남습니다. 기기 시계가 틀려도 요청의 now로 서버 시계에 맞춰 비교합니다.
+   - 쿼리는 요청마다 6개 이하입니다(D1 무료 요금제 제한 50개). */
+const KV_MAX_ITEMS = 200, KV_MAX_KEY = 400, KV_MAX_VAL = 1000000; // 값 하나의 최대 크기(UTF-8 바이트). 더 크면 저장하지 않고 skip으로 알림
+const KV_PAGE_ROWS = 60, KV_PAGE_CHARS = 400000;
+
+function utf8len(s) {
+  let n = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0x80) n += 1; else if (c < 0x800) n += 2; else if (c >= 0xd800 && c <= 0xdbff) { n += 4; i++; } else n += 3;
+  }
+  return n;
+}
+
+async function kv(b, env, cors) {
+  const sid = await tokenSid(b.tok, env);
+  if (!sid) return json({ error: 'token' }, 401, cors);
+  await schema(env);
+  const DB = env.DB, now = Date.now();
+  const off = Number.isFinite(b.now) ? now - b.now : 0;
+  const items = [], skip = [];
+  if (Array.isArray(b.items)) {
+    if (b.items.length > KV_MAX_ITEMS) return json({ error: 'many' }, 413, cors);
+    const seen = new Set();
+    for (let i = b.items.length - 1; i >= 0; i--) { // 같은 키가 두 번 오면 뒤의 것
+      const it = b.items[i];
+      if (!it || typeof it.k !== 'string' || !it.k || it.k.length > KV_MAX_KEY || seen.has(it.k)) continue;
+      if (it.v !== null && it.v !== undefined && typeof it.v !== 'string') continue;
+      const v = typeof it.v === 'string' ? it.v : null;
+      if (v !== null && v.length > KV_MAX_VAL / 3 && utf8len(v) > KV_MAX_VAL) { skip.push(it.k); continue; }
+      let t = Number(it.t);
+      t = Number.isFinite(t) && t > 1 ? Math.round(t + off) : 1;
+      if (t > now) t = now;
+      if (t < 1) t = 1;
+      seen.add(it.k);
+      items.push({ k: it.k, v, t });
+    }
+  }
+  const since = Math.max(0, Math.floor(Number(b.since) || 0));
+  const cur = typeof b.cur === 'string' ? b.cur : '';
+  const keys = JSON.stringify(items.map(x => x.k));
+  const S = [];
+  if (items.length) {
+    S.push(DB.prepare('INSERT INTO kvrev (sid, rev, up) VALUES (?1, 1, ?2) ON CONFLICT (sid) DO UPDATE SET rev = kvrev.rev + 1, up = excluded.up').bind(sid, now));
+    S.push(DB.prepare(
+      "INSERT INTO kv (sid, k, v, t, rev, sz) " +
+      "SELECT ?1, json_extract(value, '$.k'), json_extract(value, '$.v'), json_extract(value, '$.t'), (SELECT rev FROM kvrev WHERE sid = ?1), " +
+      "COALESCE(length(CAST(json_extract(value, '$.v') AS BLOB)), 0) FROM json_each(?2) WHERE true " +
+      "ON CONFLICT (sid, k) DO UPDATE SET v = excluded.v, t = excluded.t, rev = excluded.rev, sz = excluded.sz WHERE excluded.t >= kv.t"
+    ).bind(sid, JSON.stringify(items)));
+  }
+  S.push(DB.prepare('SELECT COALESCE((SELECT rev FROM kvrev WHERE sid = ?1), 0) AS rev').bind(sid));
+  /* 이 요청이 방금 쓴 줄은 빼고 받은 번호 뒤의 줄 */
+  S.push(DB.prepare(
+    "SELECT k, v, t, rev FROM kv WHERE sid = ?1 AND (rev > ?2 OR (rev = ?2 AND ?3 <> '' AND k > ?3)) " +
+    "AND NOT (rev = COALESCE((SELECT rev FROM kvrev WHERE sid = ?1), 0) AND k IN (SELECT value FROM json_each(?4))) " +
+    "ORDER BY rev, k LIMIT ?5"
+  ).bind(sid, since, cur, keys, KV_PAGE_ROWS + 1));
+  /* 서버에 더 나중에 고친 값이 있어 받아들이지 않은 값: 서버의 값을 돌려줍니다 */
+  if (items.length) {
+    S.push(DB.prepare(
+      "SELECT k, v, t, rev FROM kv WHERE sid = ?1 AND k IN (SELECT value FROM json_each(?2)) AND rev <> (SELECT rev FROM kvrev WHERE sid = ?1)"
+    ).bind(sid, keys));
+  }
+  const R = await DB.batch(S);
+  const at = items.length ? 2 : 0;
+  const rev = R[at].results[0].rev;
+  let rows = R[at + 1].results || [], more = false, chars = 0;
+  if (rows.length > KV_PAGE_ROWS) { rows = rows.slice(0, KV_PAGE_ROWS); more = true; }
+  for (let i = 0; i < rows.length; i++) {
+    chars += (rows[i].v ? rows[i].v.length : 0) + rows[i].k.length + 40;
+    if (chars > KV_PAGE_CHARS && i > 0) { rows = rows.slice(0, i); more = true; break; }
+  }
+  const out = { ok: true, now, rev, more, items: rows.map(r => ({ k: r.k, v: r.v, t: r.t, r: r.rev })) };
+  if (more) { const last = rows[rows.length - 1]; out.next = { since: last.rev, cur: last.k }; }
+  if (items.length) {
+    const rej = (R[R.length - 1].results || []).map(r => ({ k: r.k, v: r.v, t: r.t, r: r.rev }));
+    if (rej.length) out.rej = rej;
+  }
+  if (skip.length) out.skip = skip;
+  return json(out, 200, cors);
 }
