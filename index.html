@@ -97,6 +97,16 @@ table.tb{width:100%;border-collapse:collapse;margin-top:12px;font-size:14px}
 .vgraph .vlg{display:flex;flex-wrap:wrap;gap:4px 14px;margin:6px 0 0;font-size:12.5px;color:var(--mute)}
 .vgraph .vlg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
 .tbscroll{overflow-x:auto}
+/* TRAINING 성취도 */
+.trsum{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin:8px 0 6px}
+.trsum .ts{border:1px solid var(--line);border-radius:10px;padding:9px 12px;line-height:1.45}
+.trsum .tk{display:flex;align-items:center;gap:6px;font-weight:700;font-size:13.5px}
+.trsum .tk svg{width:14px;height:14px;flex:none}
+.trsum .tv{font-size:22px;font-weight:700;color:var(--acc);line-height:1.3;margin-top:2px}
+.trsum .tv small{font-size:12.5px;font-weight:600;color:var(--mute);margin-left:4px}
+.trsum .tm{font-size:12.5px;color:var(--mute)}
+.trsum .tc{font-size:12.5px;margin-top:1px}
+@media (max-width:480px){.trsum{grid-template-columns:1fr}.trsum .tv{font-size:19px}.trsum .ts{padding:8px 10px}}
 .sumtxt p{margin:2px 0}
 .tabs{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
 .tab{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:6px 12px;font-size:14px;font-weight:600;cursor:pointer;text-align:left}
@@ -1058,6 +1068,113 @@ function trStart(d){
  (d.training||[]).forEach(function(x){if(!best||String(x.date||'')>String(best.date||'')||(String(x.date||'')===String(best.date||'')&&x.n>=best.n))best=x;});
  return best?(best.kind||'기타'):trKinds(d)[0];
 }
+/* TRAINING 성취도: 각 리포트 위쪽 숫자 카드(.stats .stat)에 적힌 정답률과 문항 수를 읽어 훈련별로 모읍니다.
+   리포트를 올릴 때 --rate 로 준 값(rate)이 있으면 그 값을 정답률로 씁니다. Hörtraining은 지문을 보기 전 1차 정답률을 대표 값으로 씁니다 */
+var TRSTY={'Lesetraining':{c:'#8a4f7d',s:'triangle'},'Hörtraining':{c:'#b0653a',s:'diamond'},'Sprechtraining':{c:'#5a4fa0',s:'triangleo'},'Schreibtraining':{c:'#1f8f8f',s:'squareo'},'Diktattraining':{c:'#2e5f8a',s:'circle'}}, TRSTX=[{c:'#3a7d5c',s:'square'},{c:'#5b6b78',s:'circleo'}];
+var trCache=(typeof WeakMap==='function')?new WeakMap():null;
+function trSty(k){
+ if(TRSTY[k]) return TRSTY[k];
+ var o=trKinds(session.data).filter(function(x){return !TRSTY[x];}).indexOf(k);
+ return TRSTX[(o<0?0:o)%TRSTX.length];
+}
+function trParse(r){
+ if(trCache&&trCache.has(r)) return trCache.get(r);
+ var o={rate:null,ok:null,tot:null,first:null,fok:null,ftot:null};
+ try{
+  var doc=new DOMParser().parseFromString(r.html||'','text/html');
+  doc.querySelectorAll('.stats .stat').forEach(function(st){
+   var kq=st.querySelector('.k'), vq=st.querySelector('.v'), sq=st.querySelector('.s');
+   var k=kq?kq.textContent.trim():'', v=vq?vq.textContent.trim():'', sub=sq?sq.textContent.trim():'', m, pct=null, ok=null, tot=null;
+   if((m=v.match(/(\d+(?:\.\d+)?)\s*%/))) pct=Math.round(+m[1]);
+   if((m=sub.match(/(\d+)\s*문항\s*중\s*(\d+)\s*문항/))){tot=+m[1];ok=+m[2];}
+   else if((m=v.match(/^(\d+)\s*\/\s*(\d+)$/))){ok=+m[1];tot=+m[2];}
+   if(/1차/.test(k)&&/정답률|점수/.test(k)){if(o.first==null){o.first=pct;o.fok=ok;o.ftot=tot;}}
+   else if(/정답률/.test(k)){if(o.rate==null)o.rate=pct; if(o.tot==null&&tot){o.ok=ok;o.tot=tot;}}
+   else if(/^점수/.test(k)){if(o.tot==null&&tot){o.ok=ok;o.tot=tot;} if(o.rate==null&&pct!=null)o.rate=pct;}
+  });
+ }catch(e){}
+ if(o.rate==null&&o.tot) o.rate=Math.round(o.ok/o.tot*100);
+ if(o.first==null&&o.ftot) o.first=Math.round(o.fok/o.ftot*100);
+ if(typeof r.rate==='number'&&isFinite(r.rate)) o.rate=Math.round(r.rate);
+ if(o.ok!=null&&o.tot&&o.rate!==Math.round(o.ok/o.tot*100)){o.ok=null;o.tot=null;}
+ if(trCache) trCache.set(r,o);
+ return o;
+}
+/* 훈련 하나의 회차별 대표 정답률. 1차 정답률이 있는 훈련(Hörtraining)은 1차 값을 씁니다 */
+function trSeries(d,k){
+ var R=trOf(d,k), P=R.map(trParse), useFirst=P.some(function(p){return p.first!=null;}), pts=[];
+ P.forEach(function(p,i){
+  var v=useFirst?p.first:p.rate, ok=useFirst?p.fok:p.ok, tot=useFirst?p.ftot:p.tot;
+  if(v!=null) pts.push({i:i,v:v,ok:ok,tot:tot,fin:useFirst?p.rate:null,title:R[i].title,date:R[i].date});
+ });
+ return {k:k,first:useFirst,pts:pts,count:R.length};
+}
+function trAvg(a){return a.length?Math.round(a.reduce(function(p,c){return p+c;},0)/a.length):null;}
+function trTotal(pts,key,okk,totk){
+ var ok=0,tot=0,all=true;
+ pts.forEach(function(x){if(x[totk]){ok+=x[okk];tot+=x[totk];}else all=false;});
+ return all&&tot?{p:Math.round(ok/tot*100),ok:ok,tot:tot}:{p:trAvg(pts.map(function(x){return x[key];})),ok:null,tot:null};
+}
+function trChange(pts){
+ var v=pts.map(function(x){return x.v;}), n=v.length, a, z, lab;
+ if(n<2) return '';
+ if(n>=6){a=trAvg(v.slice(0,3));z=trAvg(v.slice(-3));lab='처음 3회 '+a+'% → 최근 3회 '+z+'%';}
+ else{a=v[0];z=v[n-1];lab=(pts[0].i+1)+'회 '+a+'% → '+(pts[n-1].i+1)+'회 '+z+'%';}
+ return lab+' '+changeHtml(a,z);
+}
+function trSumHtml(S){
+ return '<div class="trsum">'+S.map(function(x){
+  var st=trSty(x.k), t=trTotal(x.pts,'v','ok','tot'), h='<div class="ts"><div class="tk"><svg viewBox="0 0 14 14" aria-hidden="true">'+marker(st.s,7,7,st.c,4)+'</svg>'+esc(x.k)+'</div>';
+  h+='<div class="tv">'+t.p+'%<small>'+(x.first?'1차 정답률':'정답률')+'</small></div>';
+  var m=x.pts.length+'회'+(t.tot?' · '+t.tot+'문항 중 '+t.ok+'문항':'');
+  if(x.first){var f=x.pts.filter(function(q){return q.fin!=null;}).map(function(q){return q.fin;}); if(f.length) m+='<br>지문 확인 후 최종 평균 '+trAvg(f)+'%';}
+  h+='<div class="tm">'+m+'</div>';
+  var c=trChange(x.pts); if(c) h+='<div class="tc">'+c+'</div>';
+  return h+'</div>';
+ }).join('')+'</div>';
+}
+function trChart(S,wid){
+ var W=Math.max(300,Math.min(960,wid||680)), H=W<520?250:280, L=W<520?34:44, R=W<520?16:24, T=24, B=40, pw=W-L-R, ph=H-T-B;
+ var n=Math.max.apply(null,S.map(function(x){return x.pts.length?x.pts[x.pts.length-1].i+1:0;})), all=[];
+ S.forEach(function(x){x.pts.forEach(function(p){all.push(p.v);});});
+ var lo=Math.max(0,Math.floor((Math.min.apply(null,all)-6)/10)*10), hi=100, step=(hi-lo)>50?20:10, many=n>9, g='', v;
+ if((hi-lo)%step) lo=hi-Math.ceil((hi-lo)/step)*step;
+ function X(i){return n===1?L+pw/2:L+pw*i/(n-1);}
+ function Y(q){return T+ph*(1-(q-lo)/(hi-lo));}
+ for(v=lo;v<=hi;v+=step) g+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="#e3e0d8"/><text x="'+(L-8)+'" y="'+(Y(v)+4)+'" font-size="12" text-anchor="end" fill="#6b665f">'+v+'</text>';
+ for(v=0;v<n;v++) if(!many||v%2===0||v===n-1) g+='<text x="'+X(v)+'" y="'+(H-B+22)+'" font-size="'+(W<520?11.5:13)+'" font-weight="600" text-anchor="middle" fill="#262220">'+(v+1)+(many?'':'회')+'</text>';
+ if(many) g+='<text x="'+(W-R)+'" y="'+(H-4)+'" font-size="11" text-anchor="end" fill="#6b665f">회차</text>';
+ function off(x,p){
+  var same=S.filter(function(y){return y.pts.some(function(q){return q.i===p.i&&q.v===p.v;});}).map(function(y){return y.k;});
+  return same.length>1?(same.indexOf(x.k)-(same.length-1)/2)*10:0;
+ }
+ var one=S.length===1;
+ S.forEach(function(x){
+  var st=trSty(x.k), P=x.pts;
+  if(P.length>1) g+='<polyline points="'+P.map(function(p){return (X(p.i)+off(x,p))+','+Y(p.v);}).join(' ')+'" fill="none" stroke="'+st.c+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
+  P.forEach(function(p,j){
+   var cx=X(p.i)+off(x,p), cy=Y(p.v), last=j===P.length-1;
+   g+='<g class="pt" data-k="'+esc(x.k)+'" data-i="'+p.i+'"><circle cx="'+cx+'" cy="'+cy+'" r="14" fill="transparent"/>'+marker(st.s,cx,cy,st.c,5)
+    +((one||last)?'<text x="'+cx+'" y="'+(cy-11)+'" font-size="'+(W<520&&many?11:12.5)+'" font-weight="700" text-anchor="middle" fill="'+(one?'#262220':st.c)+'">'+p.v+'</text>':'')
+    +'<title>'+esc(x.k)+' '+(p.i+1)+'회 · '+esc(p.title||'')+' · '+(x.first?'1차 ':'')+'정답률 '+p.v+'%'+(p.tot?' ('+p.tot+'문항 중 '+p.ok+'문항)':'')+(p.fin!=null?' · 최종 '+p.fin+'%':'')+'</title></g>';
+  });
+ });
+ return '<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="훈련별 회차 정답률 그래프">'+g+'</svg>';
+}
+function trAchHtml(d){
+ var S=trKinds(d).map(function(k){return trSeries(d,k);}).filter(function(x){return x.pts.length;});
+ if(!S.length) return '';
+ var chart=S.some(function(x){return x.pts.length>1;}), hasFirst=S.some(function(x){return x.first;});
+ var h='<section class="card vgraph" style="padding:16px"><h2 style="margin:0 0 2px">훈련 성취도</h2>'+trSumHtml(S);
+ if(chart) h+='<div class="chart-wrap" id="trgw"></div><div class="vlg">'+S.map(function(x){var st=trSty(x.k);return '<span><i style="background:'+st.c+'"></i>'+esc(x.k)+(x.first?' (1차)':'')+'</span>';}).join('')+'</div>';
+ h+='<p class="note">리포트에 적힌 정답률을 훈련별로 모았습니다.'+(hasFirst?' Hörtraining은 지문을 보기 전에 푼 1차 정답률입니다.':'')+(chart?' 텍스트마다 난이도가 달라 한 회차보다 전체 흐름을 봅니다. 점을 누르면 그 회차 리포트로 이동합니다.':'')+'</p></section>';
+ return h;
+}
+function trAchDraw(){
+ var w=$('#trgw'); if(!w) return;
+ var d=session.data, S=trKinds(d).map(function(k){return trSeries(d,k);}).filter(function(x){return x.pts.length;});
+ w.innerHTML=trChart(S,w.clientWidth);
+}
 function renderTraining(){
  var d=session.data, pane=$('#pane-tr'), K=trKinds(d);
  window.onresize=null;
@@ -1065,14 +1182,26 @@ function renderTraining(){
  if(!tSel||K.indexOf(tSel)<0) tSel=trStart(d);
  var h='<section class="card lvsel"><h2>훈련 선택</h2><div class="levels" id="trk" role="group" aria-label="훈련 선택">';
  K.forEach(function(k){h+='<button type="button" class="lvbtn" data-k="'+esc(k)+'" aria-pressed="'+(k===tSel)+'"><b class="lg">'+esc(k)+'</b><span>리포트 '+trOf(d,k).length+'개</span></button>';});
- pane.innerHTML=h+'</div></section><div id="trbody"></div>';
- $('#trk').addEventListener('click',function(e){
-  var b=e.target.closest('.lvbtn'); if(!b||b.dataset.k===tSel) return;
-  tSel=b.dataset.k;
+ pane.innerHTML=trAchHtml(d)+h+'</div></section><div id="trbody"></div>';
+ function pick(k){
+  tSel=k;
   $('#trk').querySelectorAll('.lvbtn').forEach(function(x){x.setAttribute('aria-pressed',x.dataset.k===tSel?'true':'false');});
   renderTrainingBody();
+ }
+ $('#trk').addEventListener('click',function(e){
+  var b=e.target.closest('.lvbtn'); if(!b||b.dataset.k===tSel) return;
+  pick(b.dataset.k);
  });
  renderTrainingBody();
+ if($('#trgw')){
+  trAchDraw();
+  var tt;window.onresize=function(){clearTimeout(tt);tt=setTimeout(trAchDraw,150);};
+  $('#trgw').addEventListener('click',function(e){
+   var pt=e.target.closest('.pt'); if(!pt) return;
+   if(pt.dataset.k!==tSel) pick(pt.dataset.k);
+   var t=$('#trtabs .tab[data-i="'+pt.dataset.i+'"]'); if(t){t.click();$('#trtabs').scrollIntoView({behavior:'smooth',block:'start'});}
+  });
+ }
 }
 function renderTrainingBody(){
  var d=session.data, R=trOf(d,tSel), pane=$('#trbody');

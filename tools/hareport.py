@@ -37,7 +37,7 @@
       SODA SPRECHEN 앱이 만든 말하기 결과 파일은 --html 만 주면 됩니다. 파일 안의 정보로 시험 종류(telc B2, Goethe A2 ...), 제목, 작성일을 자동으로 채웁니다.
       여러 시험이 한 파일에 들어 있으면 시험 종류는 "말하기 종합"이 됩니다. --exam, --title, --date 로 직접 정할 수도 있습니다.
       같은 파일(같은 작성 시각)을 다시 올리면 덮어씁니다. 열람 페이지에서는 시험 종류 버튼으로 나뉘고, 각 시험 안에서 날짜순으로 1회, 2회 ... 로 보입니다.
-  python3 tools/hareport.py add-training --id 김민서 --password 학생비밀번호 --html 리포트.html --title "B2 01 · 02" [--kind Lesetraining | --source "학습 결과.txt"] [--n 1] [--date 2026-11-06]
+  python3 tools/hareport.py add-training --id 김민서 --password 학생비밀번호 --html 리포트.html --title "B2 01 · 02" [--kind Lesetraining | --source "학습 결과.txt"] [--n 1] [--date 2026-11-06] [--rate 86]
       "TRAINING" 탭에 훈련 기록 리포트를 등록합니다. 훈련 종류(Lesetraining, Hörtraining, Sprechtraining 등)별로 나뉘어 보입니다.
       --kind 를 주거나, 학생이 보낸 기록 파일을 --source 로 주면 파일 안의 앱 이름(예: "앱: SODA-Lehrwerk Lesetraining")에서 종류를 알아냅니다.
       회차(--n)는 종류 안에서 셉니다. 생략하면 그 종류의 다음 번호이고, 같은 번호를 다시 올리면 덮어씁니다.
@@ -500,6 +500,10 @@ def cmd_training(a):
     date = a.date or today_kst()
     prev = next((x for x in tr if x['kind'] == kind and x['n'] == n), None)
     t = {'n': n, 'kind': kind, 'title': a.title, 'date': date, 'html': html}
+    if a.rate is not None:
+        if not 0 <= a.rate <= 100:
+            sys.exit('--rate 는 0~100 사이의 정답률(%%)입니다.')
+        t['rate'] = round(a.rate)
     b['training'] = [x for x in tr if not (x['kind'] == kind and x['n'] == n)] + [t]
     b['training'].sort(key=lambda x: (x['kind'], x['date'], x['n']))
     write_bundle(b, sid, a.password)
@@ -620,7 +624,7 @@ def main():
     w = sub.add_parser('add-result'); [w.add_argument('--' + k, required=True) for k in ('id', 'password', 'html')]
     w.add_argument('--exam'); w.add_argument('--title'); w.add_argument('--date'); w.set_defaults(f=cmd_result)
     tg = sub.add_parser('add-training'); [tg.add_argument('--' + k, required=True) for k in ('id', 'password', 'html', 'title')]
-    tg.add_argument('--kind'); tg.add_argument('--source'); tg.add_argument('--n', type=int); tg.add_argument('--date'); tg.set_defaults(f=cmd_training)
+    tg.add_argument('--kind'); tg.add_argument('--source'); tg.add_argument('--n', type=int); tg.add_argument('--date'); tg.add_argument('--rate', type=float); tg.set_defaults(f=cmd_training)
     z = sub.add_parser('resize-decoys'); z.add_argument('--admin-password', required=True); z.set_defaults(f=cmd_resize_decoys)
     nt = sub.add_parser('notify'); nt.add_argument('--id', required=True); nt.add_argument('--kind', choices=list(NOTIFY_KINDS), default='첨삭'); nt.add_argument('--dry-run', action='store_true'); nt.set_defaults(f=cmd_notify)
     pr = sub.add_parser('set-prior'); [pr.add_argument('--' + k, required=True) for k in ('id', 'password', 'level')]
