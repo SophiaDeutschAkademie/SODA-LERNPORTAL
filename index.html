@@ -429,18 +429,20 @@ function nextQuote(){
  return q;
 }
 var SKEY='soda-portal:session', STTL=12*3600*1000, SP_API='https://sprechen.windschlaf.workers.dev';
+/* 학습 기록 자동 저장 서버(soda-sync Worker)와 저장 토큰을 두는 곳. 아래 「학습 기록 자동 저장」 참고 */
+var SYNC_API=String(window.SODA_SYNC_API||'https://soda-sync.windschlaf.workers.dev').replace(/\/+$/,''), TKEY='soda-portal:sync';
 function b64e(u8){var s='',i;for(i=0;i<u8.length;i++)s+=String.fromCharCode(u8[i]);return btoa(s);}
 function b64d(t){var b=atob(t),u=new Uint8Array(b.length),i;for(i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}
 function readSess(){
  try{
   var s=JSON.parse(localStorage.getItem(SKEY)||'null');
   if(s&&s.v===1&&s.sid&&s.k&&s.exp>Date.now()) return s;
-  if(s) localStorage.removeItem(SKEY);
+  if(s){localStorage.removeItem(SKEY);localStorage.removeItem(TKEY);}
  }catch(e){}
  return null;
 }
 function writeSess(s){try{localStorage.setItem(SKEY,JSON.stringify(s));}catch(e){}}
-function clearSess(){try{localStorage.removeItem(SKEY);}catch(e){}}
+function clearSess(){try{localStorage.removeItem(SKEY);localStorage.removeItem(TKEY);}catch(e){}}
 /* 선생님(관리자) 통과 로그인: 관리자 화면에서 SODA GRAMMATIK을 열 때 씁니다. 관리자 파일 대신 선생님용 확인 파일(data/{t.sid}.bin, 내용 없음)의 키를 남기므로
    이 브라우저에 남는 값으로는 관리자 파일과 학생 파일을 열 수 없습니다. 학생 로그인이 이미 있으면 그대로 둡니다(force면 바꿈).
    SODA-GRAMMATIK-KURS의 portal-gate.js가 쓰는 확인 표시(soda-portal:gate)도 함께 남겨, 확인 파일이 Pages에 반영되기 전에도 바로 열립니다 */
@@ -555,6 +557,28 @@ function portalSeen(force){
  try{fetch(SP_API+'/portal/seen',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sid:s.sid,k:s.k}),keepalive:true}).catch(function(){});}catch(e){}
 }
 
+/* ===== 학습 기록 자동 저장 =====
+   학생이 로그인하면 학습 기록 저장 서버(soda-sync)에서 저장 토큰을 받아 이 브라우저에 둡니다(localStorage soda-portal:sync).
+   VOKALAB은 이 토큰으로 학습 기록을 서버에 저장하고, 다른 기기에서 저장한 기록을 받습니다.
+   - 서버는 보낸 키로 이 학생의 파일(data/{sid}.bin)이 열리는지 확인한 뒤 토큰을 줍니다(말하기 서버와 같은 방법). 키는 저장하지 않습니다.
+   - 토큰은 13시간 동안 쓰입니다. 로그인한 뒤에 선생님이 학생 파일을 새로 저장해도(리포트 등록) 이 토큰은 그대로 쓰입니다.
+   - 로그아웃하면 지웁니다. 실패해도 화면에는 영향이 없고, VOKALAB이 열릴 때 다시 받습니다.
+   fresh=true: 방금 로그인함(새로 받음). false: 저장된 로그인으로 열었음(없거나 1시간 안에 끝나면 받음) */
+function syncTok(fresh){
+ var s=readSess(); if(!s||s.t||!window.fetch) return Promise.resolve(false);
+ var c=null; try{c=JSON.parse(localStorage.getItem(TKEY)||'null');}catch(e){c=null;}
+ if(!fresh&&c&&c.sid===s.sid&&c.exp>Date.now()+3600*1000) return Promise.resolve(true);
+ var ctl=window.AbortController?new AbortController():null, to=setTimeout(function(){if(ctl)ctl.abort();},8000);
+ return fetch(SYNC_API+'/token',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({sid:s.sid,k:s.k}),credentials:'omit',signal:ctl?ctl.signal:undefined})
+  .then(function(r){return r.ok?r.json():null;})
+  .then(function(j){
+   clearTimeout(to);
+   var z=readSess(); if(!j||!j.tok||!z||z.sid!==s.sid) return false;
+   try{localStorage.setItem(TKEY,JSON.stringify({v:1,sid:s.sid,at:s.at,tok:j.tok,exp:j.exp}));}catch(e){}
+   return true;
+  },function(){clearTimeout(to);return false;});
+}
+
 /* 아이디에서 파일 이름 계산 */
 async function deriveId(raw){
  if(!window.crypto||!crypto.subtle) throw new Error('nocrypto');
@@ -626,18 +650,17 @@ function viewLogin(opt){
   }
   session={data:o.data,sid:sid,pw:null,kb:o.bits,uid:uidv};
   saveSess(true); portalSeen(true);
+  var tk=syncTok(true);
   var cur=readSess();
   /* 이전 로그인에서 포탈 비밀번호로 연결해 둔 말하기 계정인데 방금 입력한 비밀번호와 다르면(비밀번호가 바뀐 경우) 새 비밀번호로 다시 확인합니다 */
   if(cur&&cur.sp&&cur.sp.src==='same'&&!spOf(o.data)&&cur.sp.pw!==spNorm(pwv)){cur.sp=null; writeSess(cur);}
   var chk=(cur&&!cur.sp)?findSp(uidv,pwv,sid,o.data.name):null;
   if(opt.back){
-   /* 다른 학습 앱으로 돌아가기 전에 말하기 계정 확인이 끝나기를 기다립니다(최대 4.5초).
+   /* 다른 학습 앱으로 돌아가기 전에 말하기 계정 확인과 저장 토큰 받기가 끝나기를 기다립니다(최대 4.5초).
       바로 떠나면 확인이 도중에 끊겨, 이 로그인 동안 말하기 연습에서 다시 로그인하게 됩니다 */
-   if(chk){
-    msg.textContent='로그인했습니다. 잠시만 기다려 주십시오.';
-    await Promise.race([chk,pause(4500)]);
-    var z=readSess(); if(z&&z.sid===sid&&!z.sp&&z.spc==='wait') spMark(sid,'net'); /* 끝나지 않은 확인은 이 페이지를 떠나면 끊기므로 "확인 중"으로 남기지 않습니다 */
-   }
+   msg.textContent='로그인했습니다. 잠시만 기다려 주십시오.';
+   await Promise.race([Promise.all(chk?[chk,tk]:[tk]),pause(4500)]);
+   if(chk){var z=readSess(); if(z&&z.sid===sid&&!z.sp&&z.spc==='wait') spMark(sid,'net');} /* 끝나지 않은 확인은 이 페이지를 떠나면 끊기므로 "확인 중"으로 남기지 않습니다 */
    location.replace(opt.back);return;
   }
   route(opt.next||'hub',true);
@@ -1000,7 +1023,7 @@ function route(v,replace){
 function restore(){
  var s=readSess(); if(!s||s.t) return false; /* 선생님 통과 로그인은 포탈 화면을 열지 않습니다 */
  try{session={data:null,sid:s.sid,pw:null,kb:b64d(s.k),uid:s.id,stub:{name:s.name,level:s.level,gr:!!s.gr}};}catch(e){session=null;clearSess();return false;}
- portalSeen(false);
+ portalSeen(false); syncTok(false);
  return true;
 }
 function me(){var d=session&&session.data, s=(session&&session.stub)||{}; return {name:(d&&d.name)||s.name||'',level:(d&&d.level)||s.level||''};}
@@ -1684,12 +1707,13 @@ window.HA={app:app,$:$,esc:esc,deriveId:deriveId,decryptBundle:decryptBundle,lea
 /* 다른 학습 앱(SODA GRAMMATIK 등)이 로그인 확인을 위해 보낸 경우: 주소의 ?next=(같은 사이트 안의 경로)로 로그인 뒤 돌아갑니다.
    relogin=1이면 저장된 로그인이 있어도 비밀번호를 다시 받습니다(학생 파일이 새로 저장되어 저장된 키로 열리지 않을 때) */
 var Q=new URLSearchParams(location.search), BACK=Q.get('next')||'', RELOGIN=Q.get('relogin')==='1';
+var VOKA_BACK=/^\/SODA-Lehrwerk\/vokalab\//i; /* VOKALAB은 누구나 쓰는 단어장이라, 로그인은 기록 자동 저장을 위한 것으로 안내합니다 */
 if(!/^\/(?!\/)[^\\]*$/.test(BACK)) BACK='';
-function backName(u,j){var n=/^\/SODA-GRAMMATIK-KURS\//i.test(u)?'SODA GRAMMATIK':/^\/SODA-Lehrwerk\/sprechen\//i.test(u)?'말하기 연습':'';return (n||'이 학습 자료')+(j==='topic'?(n?'은':'는'):'');}
+function backName(u,j){var n=/^\/SODA-GRAMMATIK-KURS\//i.test(u)?'SODA GRAMMATIK':/^\/SODA-Lehrwerk\/sprechen\//i.test(u)?'말하기 연습':/^\/SODA-Lehrwerk\/vokalab\//i.test(u)?'VOKALAB':'';return (n||'이 학습 자료')+(j==='topic'?(n?'은':'는'):'');}
 if(BACK){
  try{history.replaceState(null,'',location.pathname);}catch(e){}
  if(!RELOGIN&&restore()) location.replace(BACK);
- else viewLogin({back:BACK,note:RELOGIN?'학습 기록이 새로 등록되어 비밀번호를 한 번 더 확인합니다. 로그인하면 '+backName(BACK)+' 화면으로 돌아갑니다.':backName(BACK,'topic')+' 소피아 독일어학원 수강생 전용입니다. 학습 포탈 아이디와 비밀번호로 로그인하면 바로 이어서 열립니다.'});
+ else viewLogin({back:BACK,note:RELOGIN?'학습 기록이 새로 등록되어 비밀번호를 한 번 더 확인합니다. 로그인하면 '+backName(BACK)+' 화면으로 돌아갑니다.':VOKA_BACK.test(BACK)?'학습 포탈 아이디와 비밀번호로 로그인하면 VOKALAB 학습 기록이 서버에 자동 저장되어, 다른 기기에서도 이어서 학습할 수 있습니다. 로그인하면 VOKALAB으로 돌아갑니다.':backName(BACK,'topic')+' 소피아 독일어학원 수강생 전용입니다. 학습 포탈 아이디와 비밀번호로 로그인하면 바로 이어서 열립니다.'});
 }
 /* 저장된 로그인이 있으면 로그인 화면 없이 첫 화면을 엽니다 */
 else if(restore()) route(hashView()||'hub',true); else{if(location.hash) setUrl(''); viewLogin();}
