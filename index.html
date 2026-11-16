@@ -847,6 +847,8 @@ function levelBtns(d,z,cur,noneMsg){
      읽음 기록은 기기마다 따로라서 다른 기기에서는 다시 새 공지로 셉니다.
    - 대상(to): 비어 있으면 모든 학생, 레벨이 있으면 기본 레벨이 그 레벨인 학생에게만 보입니다. GRAMMATIK은 GRAMMATIK 탭이 있는 학생도 포함합니다.
    - 공지는 화면을 그릴 때(5분이 지났으면), 다른 앱에 다녀왔을 때, 5분마다, 공지 창을 열 때 다시 읽습니다.
+   - 관리자 화면: 대상과 상관없이 모든 공지를 셉니다. 머리글 「공지사항」 버튼에 이 기기에서 아직 열어 보지 않은 공지 수가 나오고,
+     공지 관리 창(admin.js)에서 그 공지를 「새 공지」로 보인 뒤 읽음으로 남깁니다(관리자 파일 id로). 관리자가 올린 공지는 처음부터 읽음입니다.
    - notices.json은 저장소에 공개로 올라가는 파일입니다. 화면은 로그인한 뒤에만 보이지만 주소를 아는 사람은 파일을 열 수 있습니다. */
 var NT={list:null,raw:'',state:'idle',at:0,p:null,seen:{}}, NKEY='soda-portal:notice', NT_NEW=30, NT_TTL=5*60*1000;
 var IC_X='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
@@ -878,16 +880,17 @@ function ntLoad(force){
  }).then(function(j){NT.p=null;return ntSet(j);},function(){NT.p=null; if(NT.state!=='ok') NT.state='err'; ntRerender(); return NT.list;});
  return NT.p;
 }
-/* 공지를 보는 사람. 관리자가 연 학생 화면(미리보기)은 그 학생의 대상만 맞춰 보여 주고 숫자와 읽음 표시는 쓰지 않습니다 */
+/* 공지를 보는 사람. 관리자가 연 학생 화면(미리보기)은 그 학생의 대상만 맞춰 보여 주고 숫자와 읽음 표시는 쓰지 않습니다.
+   관리자 화면은 모든 공지를 보고, 숫자와 읽음 표시를 관리자 파일 id로 이 기기에 남깁니다 */
 function ntViewer(){
  if(!session) return null;
  var d=session.data;
  if(adminKeep) return {sid:'',preview:true,level:(d&&d.level)||'',gr:!!(d&&Array.isArray(d.grammatik))};
- if(d&&d.role==='admin') return null;
+ if(d&&d.role==='admin') return {sid:session.sid||'',preview:false,admin:true,level:'',gr:false};
  var st=session.stub||{}, lv=(d&&d.level)||st.level||'';
  return {sid:session.sid,preview:false,level:lv,gr:d?Array.isArray(d.grammatik):(!!st.gr||lv==='GRAMMATIK')};
 }
-function ntFor(v,n){return !n.to.length||(!!v&&(n.to.indexOf(v.level)>=0||(!!v.gr&&n.to.indexOf('GRAMMATIK')>=0)));}
+function ntFor(v,n){return !n.to.length||(!!v&&(!!v.admin||n.to.indexOf(v.level)>=0||(!!v.gr&&n.to.indexOf('GRAMMATIK')>=0)));}
 function ntMine(v){return (NT.list||[]).filter(function(n){return ntFor(v,n);});}
 function ntReadMap(){try{var o=JSON.parse(localStorage.getItem(NKEY)||'{}');return (o&&typeof o==='object'&&!Array.isArray(o))?o:{};}catch(e){return {};}}
 function ntRead(sid){var a=ntReadMap()[sid];return Array.isArray(a)?a:[];}
@@ -1729,7 +1732,9 @@ function leaveTo(clear){ /* clear=false: 다른 탭에서 선생님 통과 로�
 }
 
 window.HA={app:app,$:$,esc:esc,deriveId:deriveId,decryptBundle:decryptBundle,leave:leave,preview:previewStudent,session:function(){return session;},spApi:SP_API,b64e:b64e,learn:LEARN,teacherSess:teacherSess,
- notice:{show:ntShow,close:ntClose,item:ntItem,norm:ntNorm,set:ntSet,mode:function(){return ntMode;}}};
+ notice:{show:ntShow,close:ntClose,item:ntItem,norm:ntNorm,set:ntSet,mode:function(){return ntMode;},btn:ntBtn,badge:ntBadge,
+  fresh:function(n){var v=ntViewer();return !!(v&&v.admin&&v.sid)&&ntIsNew(n,ntRead(v.sid));}, /* 관리자 화면: 이 기기에서 아직 열어 보지 않은 공지인지 */
+  mark:function(ids){var v=ntViewer();if(v&&v.admin&&v.sid) ntMark(v.sid,ids);ntBadge();}}};
 /* 다른 학습 앱(SODA GRAMMATIK 등)이 로그인 확인을 위해 보낸 경우: 주소의 ?next=(같은 사이트 안의 경로)로 로그인 뒤 돌아갑니다.
    relogin=1이면 저장된 로그인이 있어도 비밀번호를 다시 받습니다(학생 파일이 새로 저장되어 저장된 키로 열리지 않을 때) */
 var Q=new URLSearchParams(location.search), BACK=Q.get('next')||'', RELOGIN=Q.get('relogin')==='1';
@@ -1806,6 +1811,6 @@ else if(restore()) route(hashView()||'hub',true); else{if(location.hash) setUrl(
  mount(); new MutationObserver(mount).observe(document.getElementById('app'),{childList:true});
 })();
 </script>
-<script src="admin.js?v=10"></script>
+<script src="admin.js?v=11"></script>
 </body>
 </html>

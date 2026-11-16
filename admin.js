@@ -422,7 +422,7 @@ function probeLinks(){
 /* 공지사항 관리: 머리글의 「공지사항」 버튼으로 엽니다(index.html의 공지 창을 넓게 씀). 공지는 저장소의 notices.json에 GitHub API로 커밋합니다(토큰 필요).
    학생 화면은 index.html의 공지사항(NT)이 이 파일을 읽어 보여 줍니다. notices.json은 공개 파일이라 학생 이름이나 연락처는 쓰지 않습니다.
    올리기 · 고치기 · 지우기는 저장소의 최신 notices.json을 다시 읽은 뒤 그 위에 바꿉니다. 커밋 메시지는 "공지 등록" · "공지 수정" · "공지 삭제"입니다. */
-var NPATH='notices.json', NA={list:[],state:'idle',edit:null,msg:'',err:false,busy:false};
+var NPATH='notices.json', NA={list:[],state:'idle',edit:null,msg:'',err:false,busy:false,seen:{}};
 function NT(){return H().notice;}
 function nsay(m,err){NA.msg=m||''; NA.err=!!err; var e=$('#namsg'); if(e){e.className='msg'+(err?' err':''); e.textContent=NA.msg;}}
 function nBusy(b){
@@ -449,7 +449,7 @@ async function writeNotices(list,msg){
 }
 async function openNotices(){
  if(!A||!NT()) return;
- NA.edit=null; NA.msg=''; NA.err=false;
+ NA.edit=null; NA.msg=''; NA.err=false; NA.seen={};
  NT().show({title:'공지사항 관리',wide:true,mode:'admin',render:renderNotices});
  await loadNotices();
 }
@@ -477,7 +477,7 @@ function formHtml(n,fs){
 }
 function renderNotices(){
  var bd=$('#nt-bd'); if(!bd||!A||!NT()||NT().mode()!=='admin') return;
- var fs=formGet(); if(fs&&fs.edit!==String(NA.edit)) fs=null; /* 다시 그릴 때 쓰던 글을 지우지 않습니다 */
+ var fs=formGet(), mark=[]; if(fs&&fs.edit!==String(NA.edit)) fs=null; /* 다시 그릴 때 쓰던 글을 지우지 않습니다 */
  var h='<p class="note nt-an">학생은 로그인한 뒤 머리글의 「공지사항」에서 봅니다. 새 공지는 버튼 옆에 숫자로 표시됩니다. 대상을 고르지 않으면 모든 학생에게 보이고, 올린 뒤 학생 화면에 나타나기까지 1~2분 걸립니다.<br><b>공지는 저장소에 공개 파일(notices.json)로 올라갑니다.</b> 학생 이름, 연락처, 계좌번호 같은 정보는 쓰지 마십시오.</p>';
  if(NA.edit) h+=formHtml(NA.edit==='new'?null:nfind(NA.edit),fs);
  else h+='<button type="button" class="btn main nt-new" data-na="new">새 공지 쓰기</button>';
@@ -488,10 +488,14 @@ function renderNotices(){
  else{
   h+='<h3 class="nt-lh">올린 공지 '+NA.list.length+'개</h3>';
   NA.list.forEach(function(n){
-   h+=NT().item(n,{open:true,tools:'<div class="nt-tools"><button type="button" class="btn sm" data-na="edit" data-id="'+esc(n.id)+'">고치기</button><button type="button" class="btn sm dng" data-na="del" data-id="'+esc(n.id)+'">지우기</button></div>'});
+   /* 이 기기에서 아직 열어 보지 않은 공지는 「새 공지」로 보이고, 창을 연 동안에는 그 표시를 그대로 둡니다 */
+   var nw=!!NA.seen[n.id]||(!!NT().fresh&&NT().fresh(n));
+   if(nw&&!NA.seen[n.id]){NA.seen[n.id]=1; mark.push(n.id);}
+   h+=NT().item(n,{open:true,isNew:nw,tools:'<div class="nt-tools"><button type="button" class="btn sm" data-na="edit" data-id="'+esc(n.id)+'">고치기</button><button type="button" class="btn sm dng" data-na="del" data-id="'+esc(n.id)+'">지우기</button></div>'});
   });
  }
  bd.innerHTML=h; bd.onclick=onNotice; bd.onchange=onNoticeTo;
+ if(mark.length&&NT().mark) NT().mark(mark); /* 읽음으로 남기고 머리글 숫자를 고칩니다 */
  if(NA.busy) nBusy(true);
 }
 function onNotice(e){
@@ -524,14 +528,15 @@ async function saveNotice(){
  busy(true); nBusy(true);
  try{
   nsay('저장소의 공지를 확인하고 있습니다.');
-  var list=NT().norm(await readNotices()), today=ymd(new Date()), n;
+  var list=NT().norm(await readNotices()), today=ymd(new Date()), n, nid=null;
   if(eid){
    n=list.filter(function(x){return x.id===eid;})[0];
    if(!n) throw new Error('이 공지는 저장소에서 이미 지워졌습니다. 창을 닫았다가 다시 여십시오.');
    if(n.title===title&&n.body===body&&n.pin===fs.p&&n.to.join('|')===fs.to.join('|')){NA.edit=null; NA.list=NT().set({notices:list}); NA.state='ok'; nsay('바뀐 내용이 없습니다.'); return;}
    n.title=title; n.body=body; n.to=fs.to; n.pin=fs.p; if(n.date!==today) n.upd=today;
-  }else list.push({id:noticeId(),date:today,title:title,body:body,to:fs.to,pin:fs.p});
+  }else{nid=noticeId(); list.push({id:nid,date:today,title:title,body:body,to:fs.to,pin:fs.p});}
   await writeNotices(list,eid?'공지 수정':'공지 등록');
+  if(nid&&NT().mark) NT().mark([nid]); /* 관리자가 올린 공지는 관리자에게 새 공지로 세지 않습니다 */
   NA.edit=null;
   nsay(eid?'공지를 고쳤습니다. 학생 화면에는 1~2분 뒤에 반영됩니다.':'공지를 올렸습니다. 학생 화면에는 1~2분 뒤에 나타납니다.');
  }catch(e){nsay(msgOf(e),true);}
@@ -565,7 +570,7 @@ function open(o){
  }
  injectStyle();
  var app=H().app; app.className='wrap wide'; $('#top').hidden=false;
- var h='<div class="vhead"><div class="row"><div><div class="who">관리자</div><div class="lv">'+esc(A.name||'')+'</div></div><div class="hb"><button type="button" class="btn ntc" data-ntc aria-haspopup="dialog">공지사항</button><button class="btn" id="out">로그아웃</button></div></div></div>';
+ var h='<div class="vhead"><div class="row"><div><div class="who">관리자</div><div class="lv">'+esc(A.name||'')+'</div></div><div class="hb">'+(NT()&&NT().btn?NT().btn():'<button type="button" class="btn ntc" data-ntc aria-haspopup="dialog">공지사항</button>')+'<button class="btn" id="out">로그아웃</button></div></div></div>';
  h+=linksHtml();
  h+='<div class="asum" id="asum"></div>';
  h+='<section class="card asec"><div class="rhead"><h2 style="margin:0">학생 현황</h2><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
