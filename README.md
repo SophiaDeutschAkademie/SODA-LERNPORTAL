@@ -103,7 +103,7 @@ Sophia Deutsch Akademie 학습 포탈입니다. 학생이 로그인해서 자신
 
 #### 올리지 않는 값
 
-- 로그인 정보(`soda-portal:*`), sync.js의 기록(`soda-sync:*`), 관리자 토큰(`ha-admin-token`), VOKALAB 기록(`voka-*`, VOKALAB이 따로 주고받음), 기기마다 다른 화면 설정(다크 모드 `soda-theme`, 글씨 크기, 보기 방식, 음성 설정, 교재 페이지 위치 등), 저장 시험용 값. 목록은 `sync.js`의 `SKIP_EXACT`, `SKIP_PRE`입니다. 새 앱에 기기마다 달라야 하는 설정이 있으면 여기에 더합니다.
+- 로그인 정보(`soda-portal:*`), sync.js의 기록(`soda-sync:*`), 관리자 토큰(`ha-admin-token`), VOKALAB 기록(`voka-*`, VOKALAB이 따로 주고받음), 기기마다 다른 화면 설정(다크 모드 `soda-theme`, 글씨 크기, 보기 방식, 음성 설정, 교재 페이지 위치 등), SODA-Lehrwerk 목차 공지의 읽음 표시(`soda-lehrwerk:notice`, 학습 포탈 공지처럼 기기마다 따로 셉니다), 저장 시험용 값. 목록은 `sync.js`의 `SKIP_EXACT`, `SKIP_PRE`입니다. 새 앱에 기기마다 달라야 하는 설정이 있으면 여기에 더합니다.
 - 값 하나가 1MB(UTF-8)를 넘으면 올리지 않습니다.
 
 #### 넣은 페이지

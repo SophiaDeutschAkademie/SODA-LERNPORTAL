@@ -9,7 +9,8 @@
  * - 포탈 로그인(localStorage 'soda-portal:session')이 있을 때만 서버와 주고받습니다. 로그인이 없을 때 바뀐 내용은 기억해 두었다가
  *   다음에 로그인하면 올립니다. 선생님 통과 로그인(t:1)은 저장하지 않습니다.
  * - 올리지 않는 값: 로그인 정보(soda-portal:*), 이 스크립트의 기록(soda-sync:*), 관리자 토큰, 화면 설정(다크 모드, 글씨 크기, 보기 방식,
- *   음성 설정, 페이지 위치), 저장 시험용 값, VOKALAB 기록(voka-*, VOKALAB이 따로 저장 서버의 /sync로 주고받음). 목록은 아래 SKIP_EXACT, SKIP_PRE.
+ *   음성 설정, 페이지 위치), 저장 시험용 값, VOKALAB 기록(voka-*, VOKALAB이 따로 저장 서버의 /sync로 주고받음),
+ *   Lehrwerk 목차 공지의 읽음 표시(soda-lehrwerk:notice). 목록은 아래 SKIP_EXACT, SKIP_PRE.
  * - 학생 확인은 저장 토큰(포탈이 로그인할 때 받아 두는 localStorage 'soda-portal:sync')으로 합니다. 없거나 끝났으면 포탈 로그인 키로 새로 받습니다.
  * - 같은 값을 두 기기에서 고치면 나중에 고친 쪽이 남습니다. 페이지를 열거나 다시 볼 때 서버에 더 새 값이 있으면,
  *   그 페이지가 읽은 값이 바뀐 경우에만 페이지를 한 번 새로 불러와 보여 줍니다(「다른 기기에서 저장한 내용을 불러왔습니다」).
@@ -64,7 +65,8 @@
     'voka-tts-rate': 1, 'voka-tts-voice': 1, 'soda-gk-view': 1, 'sda-lehrwerk-grammatik-view': 1,
     'soda-gk-pg-hint': 1, 'soda-gk-pg-err': 1, 'sda-lehrwerk-grammatik-pg-hint': 1, 'sda-lehrwerk-grammatik-pg-err': 1,
     'soda-sprechen:pref': 1, 'soda-sprechen:t': 1, 'soda-gk-t': 1, 'sda-lehrwerk-grammatik-t': 1,
-    'soda-kuerze-prefs-v1': 1, 'soda-diktat-hoerprobe': 1, 'skipgc': 1
+    'soda-kuerze-prefs-v1': 1, 'soda-diktat-hoerprobe': 1, 'skipgc': 1,
+    'soda-lehrwerk:notice': 1 /* Lehrwerk 목차 공지의 읽음 표시: 학습 포탈 공지(soda-portal:notice)처럼 기기마다 따로 둡니다 */
   };
   var SKIP_PRE = ['soda-portal:', 'soda-sync:', 'ha-admin', 'sodabk', 'soda-gk-pos:', 'goatcounter', 'voka-'];
   function syncable(k) {
