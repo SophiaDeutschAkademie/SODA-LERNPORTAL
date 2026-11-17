@@ -794,7 +794,7 @@ function summaryHtml(exams){
 }
 
 /* 레벨별 자료: 시험과 리포트에 level이 없으면 학생 기본 레벨로 봅니다 */
-var SHOW=['A2','B1','B2','GRAMMATIK','ZERTIFIKAT A2','ZERTIFIKAT B1','ZERTIFIKAT B2','SNU'], LORDER=['A2','B1','B2','GRAMMATIK','ZERTIFIKAT A2','ZERTIFIKAT B1','ZERTIFIKAT B2','SNU'];
+var SHOW=['A2','B1','B2','C1','GRAMMATIK','ZERTIFIKAT A2','ZERTIFIKAT B1','ZERTIFIKAT B2','SNU'], LORDER=['A2','B1','B2','C1','GRAMMATIK','ZERTIFIKAT A2','ZERTIFIKAT B1','ZERTIFIKAT B2','SNU'];
 function lvOf(x,d){return x.level||d.level;}
 /* ZERTIFIKAT 레벨은 과제 첨삭이 아니라 "시험 준비" 탭에서 봅니다 */
 function isZ(l){return /^ZERTIFIKAT/.test(l||'');}

@@ -6,7 +6,7 @@
 /* 저장소 이름은 페이지 주소(…github.io/저장소이름/)에서 읽습니다. 이름을 SODA-LERNPORTAL로 바꾸기 전 주소(HA-REPORT)에서 열어도 같은 저장소를 씁니다 */
 var GH={owner:'SophiaDeutschAkademie',repo:(function(){var s=(location.pathname.split('/')[1]||'');return /^(soda-lernportal|ha-report)$/i.test(s)?s:'SODA-LERNPORTAL';})(),branch:'main'};
 var UP='ABCDEFGHJKLMNPQRSTUVWXYZ', LO='abcdefghijkmnopqrstuvwxyz', DG='23456789', TKEY='ha-admin-token';
-var LEVELS=['A2','B1','B2','GRAMMATIK','ZERTIFIKAT A2','ZERTIFIKAT B1','ZERTIFIKAT B2','SNU'], EXAMS=['telc','GZ'];
+var LEVELS=['A2','B1','B2','C1','GRAMMATIK','ZERTIFIKAT A2','ZERTIFIKAT B1','ZERTIFIKAT B2','SNU'], EXAMS=['telc','GZ'];
 function isZ(l){return /^ZERTIFIKAT/.test(l||'');}
 var PR={state:'load',seen:{},sp:{},at:0}, A=null, S=null, st={}, token='', thr=7, flt='all', working=false, loadedAt=null, shown={}, styled=false, lastErr='', gen=0, pending={};
 

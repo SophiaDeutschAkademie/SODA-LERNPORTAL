@@ -251,6 +251,9 @@ function analyze(d){
  if(!d||d.role==='admin') return o;
  var K=null; try{K=readVoka(d,now);}catch(e){K=null;}
  o.voka=K; var Vk=(K&&K.Vk)?K.Vk:null;
+ /* 기본 레벨이 C1인 학생은 B2까지 마친 것으로 보아 위치를 주지 않습니다(레벨 도달 예상은 A2 · B1 · B2까지만 계산합니다).
+    예전에 낸 B2 과제가 최근 8주 안에 있어도 B2 도달 예상을 보여 주지 않습니다 */
+ if(d.level==='C1') return o;
  function lvOf(x){return x.level||d.level;}
  var subs=[], seen={};
  (d.exams||[]).forEach(function(e){
@@ -409,7 +412,7 @@ function vocMeasured(A){var K=A.voka;return !!(K&&K.n&&K.rate!=null&&K.win&&K.wi
 function topHtml(d){
  var A=analyze(d);
  if(A.kind==='none') return '';
- /* 기본 레벨이 정규 과정이 아닌 학생(ZERTIFIKAT, SNU)은 최근에 낸 정규 과정 과제가 있을 때만 analyze가 위치를 줍니다 */
+ /* 기본 레벨이 정규 과정이 아닌 학생(ZERTIFIKAT, SNU)은 최근에 낸 정규 과정 과제가 있을 때만 analyze가 위치를 줍니다. C1 학생에게는 주지 않습니다 */
  injectStyle();
  var head='<section class="card ach-top" id="ach-top" aria-label="레벨 도달 예상"><div class="rhead"><h2>레벨 도달 예상</h2><button type="button" class="btn" id="ach-go">직접 계산해 보기</button></div>';
  if(A.h==null||A.s==null){
