@@ -41,6 +41,12 @@
       "TRAINING" 탭에 훈련 기록 리포트를 등록합니다. 훈련 종류(Lesetraining, Hörtraining, Sprechtraining 등)별로 나뉘어 보입니다.
       --kind 를 주거나, 학생이 보낸 기록 파일을 --source 로 주면 파일 안의 앱 이름(예: "앱: SODA-Lehrwerk Lesetraining")에서 종류를 알아냅니다.
       회차(--n)는 종류 안에서 셉니다. 생략하면 그 종류의 다음 번호이고, 같은 번호를 다시 올리면 덮어씁니다.
+      리포트 이름은 '레벨 Set 번호'입니다. Hörtraining은 --title 에 앱의 세트 이름(B2 Set 01, 지문 하나면 B1 Set 01 · Teil 2)을 줍니다.
+      Lesetraining은 --title 에 그 리포트가 다룬 텍스트 번호(B2 05, 두 개면 B2 01 · 02)를 주면, 리포트 하나를 세트 하나로 보고
+      레벨마다 01부터 세어 세트 이름(B2 Set 03)을 붙입니다. 텍스트 번호는 texts 에 남습니다.
+      올릴 때 리포트 안의 문서 제목, 제목 회차, 머리말(이름 · 세트), 「지금까지의 기록」 줄의 세트 이름도 자동으로 맞춥니다.
+  python3 tools/hareport.py fix-training --id 김민서 --password 학생비밀번호 [--dry-run]
+      이미 올린 TRAINING 리포트의 이름을 add-training 과 같은 규칙으로 맞춥니다. --dry-run 은 바뀔 곳만 보여 주고 저장하지 않습니다.
   python3 tools/hareport.py set-prior --id 김민서 --password 학생비밀번호 --level B1 --count 8 [--score 75] [--clear]
       학습 포탈에 올리기 전에 낸 정규 과정(A2, B1, B2) 과제 수를 적어 둡니다. 학생 화면의 "레벨 도달 예상"과 "성취 평가"가
       그 레벨에서 얻은 과제 점수에 이 횟수를 더해 계산합니다. --score 는 그 과제들의 평균 점수(%)이고, 생략하면 등록된 과제의 평균으로 봅니다.
@@ -71,6 +77,7 @@
 """
 import argparse, hashlib, json, os, re, secrets, sys, unicodedata
 from datetime import datetime, timedelta, timezone
+from html import escape as hesc
 from pathlib import Path
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -494,6 +501,150 @@ def training_kind(text):
     return None
 
 
+# ---- TRAINING 리포트 이름 ----
+# 목록 이름은 훈련 종류와 관계없이 '레벨 Set 번호' 형식입니다.
+#   Hörtraining: 앱의 세트 이름 그대로(B2 Set 01). 세트의 지문(Teil) 하나만 올리면 'B1 Set 01 · Teil 2'.
+#   Lesetraining: 리포트 하나를 세트 하나로 보고, 레벨마다 회차 순서로 01부터 셉니다(B2 Set 03).
+#     add-training --title 에는 그 리포트가 다룬 텍스트 번호(B2 05, 두 개면 B2 01 · 02)를 주고, 세트 이름은 도구가 붙입니다.
+#     텍스트 번호는 기록의 texts 에 남기고, 세트 번호와 다르면 「지금까지의 기록」 줄에 괄호로 붙입니다(B2 Set 02 (B2 03)).
+# add-training 과 fix-training 은 리포트 안의 이름도 기록에 맞춥니다: 문서 제목(<title>), 제목(h1)의 회차,
+# 머리말(.who)의 이름과 세트, 「지금까지의 기록」(.hist) 줄의 세트 이름. 다른 학생 리포트를 본떠 만들어
+# 문서 제목에 다른 학생 이름이 남는 일도 이것으로 막습니다.
+TR_LV = r'(A1|A2|B1|B2|C1)'
+
+
+def tr_set_name(s):
+    """'b1 set 1 teil 2' 같은 글을 세트 이름('B1 Set 01 · Teil 2')으로 맞춥니다. 세트 이름이 아니면 None입니다."""
+    m = re.match(r'^' + TR_LV + r'\s*SET\s*(\d{1,2})(?:\s*·?\s*TEIL\s*(\d))?$', unicodedata.normalize('NFKC', s or '').strip().upper())
+    if not m:
+        return None
+    return '%s Set %02d' % (m.group(1), int(m.group(2))) + (' · Teil %s' % m.group(3) if m.group(3) else '')
+
+
+def tr_texts(s):
+    """Lesetraining 텍스트 번호('b2 1, 2' 등)를 'B2 01 · 02'로 맞춥니다. 텍스트 번호가 아니면 None입니다."""
+    m = re.match(r'^' + TR_LV + r'\s*(\d{1,2}(?:\s*[·,/]\s*\d{1,2})*)$', unicodedata.normalize('NFKC', s or '').strip().upper())
+    if not m:
+        return None
+    return '%s %s' % (m.group(1), ' · '.join('%02d' % int(x) for x in re.split(r'\s*[·,/]\s*', m.group(2))))
+
+
+def tr_level(t):
+    for s in (t.get('texts'), t.get('title')):
+        m = re.match(TR_LV, s or '')
+        if m:
+            return m.group(1)
+    return None
+
+
+def tr_hist_rows(h):
+    """리포트의 「지금까지의 기록」 줄을 (회차, 이름) 목록으로 돌려줍니다."""
+    rows = []
+    for blk in re.findall(r'<ul class="hist">.*?</ul>', h, re.S):
+        rows += [(int(k), s) for k, s in re.findall(r'<li><span><b>(\d+)회</b> (.*?) · \d{1,2}월 \d{1,2}일', blk)]
+    return rows
+
+
+def training_names(tr):
+    """{(훈련 종류, 회차): (목록 이름, 「지금까지의 기록」 줄에 쓰는 이름)}"""
+    names, cnt = {}, {}
+    for t in sorted(tr, key=lambda x: (x['kind'], x['n'])):
+        title = label = t['title']
+        if t['kind'] == 'Lesetraining':
+            lv = tr_level(t)
+            if lv:
+                cnt[lv] = cnt.get(lv, 0) + 1
+                title = label = '%s Set %02d' % (lv, cnt[lv])
+                tx = t.get('texts')
+                if tx and tx != '%s %02d' % (lv, cnt[lv]):
+                    label = '%s (%s)' % (title, tx)
+        names[(t['kind'], t['n'])] = (title, label)
+    return names
+
+
+def fix_training_html(h, name, kind, n, names):
+    """리포트 안의 문서 제목, 제목 회차, 머리말, 「지금까지의 기록」 줄을 기록에 맞춥니다. (새 html, 바꾼 곳, 확인할 것)"""
+    title = names[(kind, n)][0]
+    done, warn = [], []
+    want = '<title>%s %s 첨삭 %d회 %s</title>' % (hesc(name), kind, n, hesc(title))
+    h2, c = re.subn(r'<title>.*?</title>', lambda m: want, h, count=1, flags=re.S)
+    if not c:
+        warn.append('문서 제목(<title>)이 없습니다')
+    elif h2 != h:
+        done.append('문서 제목')
+    h = h2
+    h2, c = re.subn(r'(<h1[^>]*>[^<]*학습 기록 첨삭 · )(\d+)(회</h1>)', lambda m: m.group(1) + str(n) + m.group(3), h, count=1)
+    if not c:
+        warn.append('제목(h1)에서 회차를 찾지 못했습니다')
+    elif h2 != h:
+        done.append('제목 회차')
+    h = h2
+    h2, c = re.subn(r'(<p class="who"><b>)(.*?)(</b> · )(.*?)( · \d{4}년 \d{1,2}월 \d{1,2}일)',
+                    lambda m: m.group(1) + hesc(name) + m.group(3) + hesc(title) + m.group(5), h, count=1, flags=re.S)
+    if not c:
+        warn.append('머리말(.who)에서 「이름 · 세트 · 날짜」를 찾지 못했습니다')
+    elif h2 != h:
+        done.append('머리말')
+    h = h2
+
+    def row(m):
+        k = int(m.group(2))
+        if (kind, k) not in names:
+            warn.append('「지금까지의 기록」의 %d회는 학생 파일에 없는 회차입니다' % k)
+            return m.group(0)
+        return m.group(1) + m.group(2) + m.group(3) + hesc(names[(kind, k)][1]) + m.group(5)
+
+    h2 = re.sub(r'<ul class="hist">.*?</ul>',
+                lambda b: re.sub(r'(<li><span><b>)(\d+)(회</b> )(.*?)( · \d{1,2}월 \d{1,2}일)', row, b.group(0)), h, flags=re.S)
+    if h2 != h:
+        done.append('지금까지의 기록')
+    return h2, done, warn
+
+
+def normalize_training(b):
+    """학생 파일의 TRAINING 기록과 리포트 안 이름을 모두 맞춥니다. [(종류, 회차, 이름, 바꾼 것, 확인할 것)]을 돌려줍니다."""
+    tr = b.get('training') or []
+    # 텍스트 번호(texts): 제목이 텍스트 번호이면 옮기고, 이미 세트 이름이면 「지금까지의 기록」 줄의 괄호에서 찾습니다.
+    rec = {}
+    for t in tr:
+        if t['kind'] == 'Lesetraining':
+            for k, s in tr_hist_rows(t['html']):
+                m = re.match(r'^(.+?) \((.+)\)$', s)
+                if m and tr_set_name(m.group(1)) and tr_texts(m.group(2)):
+                    rec[(k, tr_set_name(m.group(1)))] = tr_texts(m.group(2))
+    added = {}
+    for t in tr:
+        if t['kind'] == 'Lesetraining' and not t.get('texts'):
+            tx = tr_texts(t['title']) or rec.get((t['n'], t['title']))
+            if tx:
+                t['texts'] = added[(t['kind'], t['n'])] = tx
+    names = training_names(tr)
+    log = []
+    for t in sorted(tr, key=lambda x: (x['kind'], x['n'])):
+        key = (t['kind'], t['n'])
+        title = names[key][0]
+        ch = []
+        if t['title'] != title:
+            ch.append('목록 이름 %s → %s' % (t['title'], title))
+            t['title'] = title
+        if key in added:
+            ch.append('텍스트 번호 %s 기록' % added[key])
+        h, done, warn = fix_training_html(t['html'], b['name'], t['kind'], t['n'], names)
+        if h != t['html']:
+            t['html'] = h
+            ch += done
+        log.append((t['kind'], t['n'], title, ch, warn))
+    return log
+
+
+def print_training_log(log, everything=False):
+    for kind, n, title, ch, warn in log:
+        if ch or warn or everything:
+            print('  %s %d회 %s: %s' % (kind, n, title, ', '.join(ch) if ch else '그대로'))
+            for w in warn:
+                print('    확인 필요: %s' % w)
+
+
 def cmd_training(a):
     b, sid = read_bundle(a.id, a.password)
     html = Path(a.html).read_text(encoding='utf-8')
@@ -508,15 +659,54 @@ def cmd_training(a):
     n = a.n or max([x['n'] for x in tr if x['kind'] == kind] + [0]) + 1
     date = a.date or today_kst()
     prev = next((x for x in tr if x['kind'] == kind and x['n'] == n), None)
-    t = {'n': n, 'kind': kind, 'title': a.title, 'date': date, 'html': html}
+    title, texts = a.title.strip(), None
+    if kind == 'Hörtraining':
+        title = tr_set_name(title)
+        if not title:
+            sys.exit('Hörtraining --title 은 앱의 세트 이름으로 씁니다. 예: B2 Set 01. 세트의 지문(Teil) 하나만 올리면 B1 Set 01 · Teil 2')
+    elif kind == 'Lesetraining':
+        texts = tr_texts(title)
+        if texts:
+            title = texts
+        elif tr_set_name(title) and prev:
+            title, texts = tr_set_name(title), prev.get('texts')  # 이미 올린 회차를 세트 이름으로 다시 올릴 때
+        else:
+            sys.exit('Lesetraining --title 에는 리포트가 다룬 텍스트 번호를 줍니다. 예: B2 05, 텍스트 두 개면 B2 01 · 02. 세트 이름(B2 Set 03)은 도구가 붙입니다.')
+    t = {'n': n, 'kind': kind, 'title': title, 'date': date, 'html': html}
+    if texts:
+        t['texts'] = texts
     if a.rate is not None:
         if not 0 <= a.rate <= 100:
             sys.exit('--rate 는 0~100 사이의 정답률(%%)입니다.')
         t['rate'] = round(a.rate)
     b['training'] = [x for x in tr if not (x['kind'] == kind and x['n'] == n)] + [t]
+    log = normalize_training(b)
     b['training'].sort(key=lambda x: (x['kind'], x['date'], x['n']))
     write_bundle(b, sid, a.password)
-    print('TRAINING 저장: %s %d회 · %s · %s, %d자, 전체 %d개%s' % (kind, n, a.title, date, len(html), len(b['training']), ' (덮어씀)' if prev else ''))
+    print('TRAINING 저장: %s %d회 · %s%s · %s, %d자, 전체 %d개%s' % (kind, n, t['title'], (' (텍스트 %s)' % texts) if texts else '', date,
+                                                       len(t['html']), len(b['training']), ' (덮어씀)' if prev else ''))
+    print_training_log([x for x in log if (x[0], x[1]) != (kind, n)])
+    for w in next(x for x in log if (x[0], x[1]) == (kind, n))[4]:
+        print('  확인 필요: %s' % w)
+
+
+def cmd_fix_training(a):
+    b, sid = read_bundle(a.id, a.password)
+    if not b.get('training'):
+        print('TRAINING 기록이 없습니다: %s' % b['name'])
+        return
+    log = normalize_training(b)
+    print_training_log(log, everything=True)
+    changed = [x for x in log if x[3]]
+    if not changed:
+        print('바꿀 것이 없습니다: %s' % b['name'])
+        return
+    if a.dry_run:
+        print('--dry-run: 저장하지 않았습니다. 바뀔 기록 %d개: %s' % (len(changed), b['name']))
+        return
+    b['training'].sort(key=lambda x: (x['kind'], x['date'], x['n']))
+    write_bundle(b, sid, a.password)
+    print('TRAINING 이름 정리 저장: %s, 바뀐 기록 %d개' % (b['name'], len(changed)))
 
 
 def cmd_prior(a):
@@ -759,6 +949,8 @@ def main():
     w.add_argument('--exam'); w.add_argument('--title'); w.add_argument('--date'); w.set_defaults(f=cmd_result)
     tg = sub.add_parser('add-training'); [tg.add_argument('--' + k, required=True) for k in ('id', 'password', 'html', 'title')]
     tg.add_argument('--kind'); tg.add_argument('--source'); tg.add_argument('--n', type=int); tg.add_argument('--date'); tg.add_argument('--rate', type=float); tg.set_defaults(f=cmd_training)
+    fx = sub.add_parser('fix-training'); [fx.add_argument('--' + k, required=True) for k in ('id', 'password')]
+    fx.add_argument('--dry-run', action='store_true'); fx.set_defaults(f=cmd_fix_training)
     z = sub.add_parser('resize-decoys'); z.add_argument('--admin-password', required=True); z.set_defaults(f=cmd_resize_decoys)
     nt = sub.add_parser('notify'); nt.add_argument('--id', required=True); nt.add_argument('--kind', choices=list(NOTIFY_KINDS), default='첨삭'); nt.add_argument('--dry-run', action='store_true'); nt.set_defaults(f=cmd_notify)
     pr = sub.add_parser('set-prior'); [pr.add_argument('--' + k, required=True) for k in ('id', 'password', 'level')]
