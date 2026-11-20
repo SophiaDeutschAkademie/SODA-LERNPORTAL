@@ -331,7 +331,8 @@ function $(s,r){return (r||document).querySelector(s);}
    - sid: 학생 파일 id, k: 학생 파일을 여는 키(비밀번호에서 계산한 값. 포탈 비밀번호 자체는 저장하지 않습니다), name · level: 화면 표시용
    - sp: 말하기 연습(SODA Sprechen) 계정. 학생 파일의 sprechen 값이 먼저이고, 없으면 포탈과 같은 아이디 · 비밀번호로 말하기 서버에 로그인이 될 때 그 값입니다
    - spc: sp가 비어 있을 때의 말하기 계정 확인 상태(아래 "말하기 계정 확인")
-   - exp: 유효 시각(로그인 후 12시간). 로그아웃하면 바로 지웁니다. 관리자 로그인은 저장하지 않습니다. */
+   - exp: 유효 시각(로그인 후 12시간). 로그아웃하면 바로 지웁니다. 관리자 로그인은 저장하지 않습니다.
+     열어 둔 포탈 화면도 이 시각이 지나면, 그 화면으로 돌아오거나 다른 화면으로 갈 때 로그인 화면으로 돌아갑니다(onReturn, route). */
 /* 로그인 뒤 첫 화면의 격언 80개: [독일어, 한국어, 출처]. 출처가 확실한 인용만 저자와 작품을 적고, 나머지는 속담(Sprichwort)입니다 */
 var QUOTES=[
  ['Wer fremde Sprachen nicht kennt, weiß nichts von seiner eigenen.','외국어를 모르는 사람은 자기 언어에 대해서도 아무것도 모릅니다.','Johann Wolfgang von Goethe, Maximen und Reflexionen'],
@@ -442,7 +443,10 @@ function readSess(){
  }catch(e){}
  return null;
 }
-function writeSess(s){try{localStorage.setItem(SKEY,JSON.stringify(s));}catch(e){}}
+/* storeErr: 로그인 정보를 이 브라우저에 남기지 못했을 때의 오류 이름(저장 공간이 가득 참 QuotaExceededError, 브라우저 설정이 막음 SecurityError 등).
+   SODA의 모든 학습 앱이 같은 주소(sophiadeutschakademie.github.io)의 저장 공간 하나를 함께 씁니다 */
+var storeErr='';
+function writeSess(s){try{localStorage.setItem(SKEY,JSON.stringify(s));storeErr='';}catch(e){storeErr=(e&&e.name)||'error';}}
 function clearSess(){try{localStorage.removeItem(SKEY);localStorage.removeItem(TKEY);}catch(e){}}
 /* 선생님(관리자) 통과 로그인: 관리자 화면에서 SODA GRAMMATIK을 열 때 씁니다. 관리자 파일 대신 선생님용 확인 파일(data/{t.sid}.bin, 내용 없음)의 키를 남기므로
    이 브라우저에 남는 값으로는 관리자 파일과 학생 파일을 열 수 없습니다. 학생 로그인이 이미 있으면 그대로 둡니다(force면 바꿈).
@@ -459,15 +463,18 @@ function teacherSess(t,force){
 function spOf(d){var p=d&&d.sprechen; return (p&&p.id&&p.pw)?{id:String(p.id),pw:String(p.pw)}:null;}
 /* fresh=true: 방금 로그인함(유효 시각을 새로 잡음). false: 저장된 로그인으로 학생 파일을 다시 읽음(유효 시각은 그대로).
    학생 파일에 말하기 계정이 없으면, 이 브라우저에 남아 있는 같은 학생의 로그인에 연결해 둔 말하기 계정(확인을 마친 계정, 말하기 연습에서 직접 로그인한 계정)을 이어 씁니다.
-   비밀번호만 다시 확인하는 로그인(학습 기록이 새로 등록된 경우)에서도 연결이 끊기지 않습니다 */
+   비밀번호만 다시 확인하는 로그인(학습 기록이 새로 등록된 경우)에서도 연결이 끊기지 않습니다.
+   session.exp(유효 시각)와 session.kept(로그인을 이 브라우저에 남겼는지)도 함께 적습니다. 열어 둔 화면으로 돌아올 때(onReturn) 씁니다 */
 function saveSess(fresh){
  if(!session||!session.data||!session.kb) return;
  var d=session.data, prev=readSess(), same=!!prev&&!prev.t&&prev.sid===session.sid, keep=!fresh&&same, sp=spOf(d), now=Date.now();
+ if(!fresh&&!same) return; /* 저장된 로그인이 그사이 끝났거나(12시간) 다른 학생의 로그인으로 바뀌었으면 새로 만들지 않습니다 */
  if(!sp&&same&&prev.sp) sp=prev.sp;
  var x={v:1,sid:session.sid,id:session.uid||d.name,name:d.name,level:d.level,k:b64e(session.kb),sp:sp,q:(keep&&typeof prev.q==='number')?prev.q:nextQuote(),at:keep?prev.at:now,exp:keep?prev.exp:now+STTL};
  if(!sp&&keep&&prev.spc) x.spc=prev.spc;
  if(Array.isArray(d.grammatik)) x.gr=1; /* GRAMMATIK 탭이 있는 학생: GRAMMATIK 대상 공지를 보여 주는 데 씁니다 */
  writeSess(x);
+ var z=readSess(); session.exp=x.exp; session.kept=!!(z&&z.sid===x.sid&&z.k===x.k);
 }
 /* ===== 말하기 계정 확인 =====
    학생 파일에 말하기 계정이 없으면, 로그인 직후 포탈과 같은 아이디 · 비밀번호로 말하기 서버에 로그인이 되는지 확인합니다.
@@ -500,6 +507,7 @@ function spMark(sid,state,sp){
 }
 /* 말하기 연습 연결 상태 줄: 첫 화면과 학습 진행하기 아래에 보입니다. 이 로그인으로 말하기 연습이 바로 열리는지, 아니면 왜 아닌지를 학생과 선생님이 바로 볼 수 있게 합니다 */
 function spText(){
+ if(isStudent()&&session.kept===false) return ['warn',storeText()]; /* 로그인을 이 브라우저에 남기지 못하면 말하기 연습 연결과 학습 저장도 되지 않으므로 그 까닭을 먼저 보입니다 */
  var s=readSess(); if(!s||s.t) return ['',''];
  if(s.sp&&s.sp.id&&s.sp.pw) return ['','말하기 연습: 이 로그인으로 바로 열립니다.'];
  if(s.spc==='wait') return ['','말하기 연습: 계정을 확인하고 있습니다.'];
@@ -507,6 +515,10 @@ function spText(){
  if(s.spc==='net') return ['warn','말하기 연습: 말하기 서버에 연결하지 못해 계정을 확인하지 못했습니다. 로그아웃한 뒤 다시 로그인하면 다시 확인합니다.'];
  if(s.spc==='busy') return ['warn','말하기 연습: 말하기 서버가 잠시 로그인을 막고 있어 계정을 확인하지 못했습니다. 몇 분 뒤에 로그아웃한 다음 다시 로그인해 주십시오.'];
  return ['warn','말하기 연습: 계정이 연결되어 있지 않습니다. 로그아웃한 뒤 다시 로그인하면 확인합니다.'];
+}
+function storeText(){
+ return '로그인 저장: '+(/quota/i.test(storeErr)?'이 브라우저의 저장 공간이 가득 차':'이 브라우저 설정이 사이트 데이터 저장을 막고 있어')
+  +' 로그인을 이 기기에 남기지 못했습니다. 이 화면은 그대로 쓸 수 있지만, 다른 학습 앱에서는 로그인이 이어지지 않아 학습 기록 자동 저장과 말하기 연습 바로 열기가 되지 않고, 페이지를 새로 열면 다시 로그인해야 합니다. 선생님께 알려 주십시오.';
 }
 function spLine(){var t=spText();return '<p class="spst'+(t[0]?' '+t[0]:'')+'" id="spst" role="status">'+esc(t[1])+'</p>'+syLine();}
 /* 학습 저장 상태 줄: 푼 문제가 서버에 저장되는지 보여 줍니다(sync.js) */
@@ -559,16 +571,36 @@ async function findSp(id,pw,sid,name){
  }catch(e){spMark(sid,'net');return 'net';}
 }
 
-/* 마지막 로그인 기록: 로그인하거나 저장된 로그인으로 포탈을 열면 말하기 서버(/portal/seen)에 알립니다.
-   서버는 보낸 키로 이 학생의 파일이 열리는지만 확인하고 시각을 남깁니다(키는 저장하지 않습니다). 같은 기기에서는 30분에 한 번만 보냅니다.
-   실패해도 화면에는 영향이 없습니다. 관리자 화면의 "마지막 로그인" 칸이 이 기록을 보여 줍니다. */
-function portalSeen(force){
- var s=readSess(); if(!s||!window.fetch) return;
- var K='soda-portal:seen', t=Date.now(), o=null;
- try{o=JSON.parse(localStorage.getItem(K)||'null');}catch(e){o=null;}
- if(!force&&o&&o.sid===s.sid&&t-o.t<30*60*1000) return;
- try{localStorage.setItem(K,JSON.stringify({sid:s.sid,t:t}));}catch(e){}
- try{fetch(SP_API+'/portal/seen',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sid:s.sid,k:s.k}),keepalive:true}).catch(function(){});}catch(e){}
+/* 마지막 로그인 기록: 로그인할 때, 저장된 로그인으로 포탈을 열 때, 열어 둔 포탈 화면으로 돌아올 때(onReturn) 말하기 서버(/portal/seen)에 알립니다.
+   서버는 보낸 키로 이 학생의 파일이 열리는지만 확인하고 시각을 남깁니다(키는 저장하지 않습니다). 관리자 화면의 "마지막 로그인" 칸이 이 기록을 보여 줍니다.
+   - 로그인할 때는 방금 계산한 키를 그대로 보냅니다. 이 브라우저에 로그인을 남기지 못해도(저장 공간이 가득 참, 브라우저 설정이 막음) 기록됩니다.
+   - 서버가 받으면 같은 기기에서 30분 동안 다시 보내지 않습니다. 서버에 연결하지 못했으면 2분, 서버가 키를 받지 않았으면(학생 파일이 새로 저장되어
+     저장된 키로 열리지 않음) 10분이 지난 뒤 다시 보냅니다. 결과는 localStorage SEEN_K에 남습니다(st: send 보내는 중, ok, net, bad).
+     예전에는 보내기 전에 "보냄" 표시를 먼저 남겨, 실패해도 30분 동안 다시 보내지 않았고 실패한 줄도 알 수 없었습니다.
+   - text/plain으로 보내 사전 확인 요청(CORS preflight) 없이 한 번에 갑니다. 서버는 본문을 JSON으로 읽으므로 서버 코드는 그대로입니다.
+   실패해도 화면에는 영향이 없습니다. */
+var SEEN_K='soda-portal:seen', SEEN_GAP={ok:30*60*1000,send:2*60*1000,net:2*60*1000,bad:10*60*1000}, seenMemo=null;
+/* 저장이 막힌 브라우저에서는 이 페이지 안에 기억해(seenMemo) 간격을 지킵니다 */
+function seenGet(){if(seenMemo) return seenMemo; try{return JSON.parse(localStorage.getItem(SEEN_K)||'null');}catch(e){return null;}}
+function seenSet(o){try{localStorage.setItem(SEEN_K,JSON.stringify(o)); seenMemo=null;}catch(e){seenMemo=o;}}
+/* 보낼 학생: 이 브라우저에 남은 로그인(같은 학생이면 다른 탭에서 새로 받은 키가 있을 수 있음), 없으면 이 화면의 로그인 */
+function seenArgs(){
+ var s=readSess(), cur=isStudent()?session:null;
+ if(s&&!s.t&&(!cur||s.sid===cur.sid)) return {sid:s.sid,k:s.k};
+ if(cur&&cur.sid&&cur.kb) return {sid:cur.sid,k:b64e(cur.kb)};
+ return null;
+}
+function portalSeen(force,sid,k){
+ if(!window.fetch) return;
+ if(!sid||!k){var a=seenArgs(); if(!a) return; sid=a.sid; k=a.k;}
+ var t=Date.now(), kf=String(k).slice(0,12), o=seenGet();
+ if(!force&&o&&o.sid===sid&&o.kf===kf&&SEEN_GAP[o.st]&&t-o.t<SEEN_GAP[o.st]) return;
+ seenSet({sid:sid,kf:kf,t:t,st:'send'});
+ function done(st){var z=seenGet(); if(z&&z.sid===sid&&z.kf===kf&&z.t===t) seenSet({sid:sid,kf:kf,t:Date.now(),st:st});}
+ try{
+  fetch(SP_API+'/portal/seen',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({sid:sid,k:k}),credentials:'omit',keepalive:true})
+   .then(function(r){done(r.ok?'ok':(r.status===400||r.status===403)?'bad':'net');},function(){done('net');});
+ }catch(e){done('net');}
 }
 
 /* ===== 학습 기록 자동 저장 =====
@@ -669,7 +701,7 @@ function viewLogin(opt){
    if(prevS&&!prevS.t&&prevS.sid!==sid){msg.textContent='이 기기에 남아 있는 앞 학생의 학습 기록을 저장하고 있습니다.';try{await SY.flushFor(prevS,4000);}catch(e){}}
    try{await SY.prepare(sid);}catch(e){}
   }
-  saveSess(true); portalSeen(true);
+  saveSess(true); portalSeen(true,sid,b64e(o.bits)); /* 마지막 로그인 기록: 이 브라우저에 로그인을 남기지 못했어도 보냅니다 */
   var tk=syncTok(true);
   var syn=SY?SY.login(8000,tk):null; /* 서버의 학습 기록을 받아 오고 이 기기에 남은 내용을 올립니다 */
   var cur=readSess();
@@ -1040,13 +1072,14 @@ function hashView(){var h=(location.hash||'').replace(/^#/,''); return (h==='hub
 function render(v){if(v==='records') openRecords(); else if(v==='learn') viewLearn(); else viewHub();}
 function route(v,replace){
  if(!isStudent()) return;
+ if(sessOver()){leaveTo(true,EXPIRED);return;} /* 열어 둔 화면에서 12시간이 지난 뒤 다른 화면으로 가려는 경우 */
  try{if(replace) history.replaceState({v:v},'','#'+v); else history.pushState({v:v},'','#'+v);}catch(e){}
  render(v);
 }
 /* 저장된 로그인으로 다시 엽니다. 학생 파일은 「나의 학습 기록 보기」를 누를 때 읽습니다 */
 function restore(){
  var s=readSess(); if(!s||s.t) return false; /* 선생님 통과 로그인은 포탈 화면을 열지 않습니다 */
- try{session={data:null,sid:s.sid,pw:null,kb:b64d(s.k),uid:s.id,stub:{name:s.name,level:s.level,gr:!!s.gr}};}catch(e){session=null;clearSess();return false;}
+ try{session={data:null,sid:s.sid,pw:null,kb:b64d(s.k),uid:s.id,stub:{name:s.name,level:s.level,gr:!!s.gr},exp:s.exp,kept:true};}catch(e){session=null;clearSess();return false;}
  portalSeen(false); syncTok(false);
  return true;
 }
@@ -1141,12 +1174,17 @@ async function openRecords(){
 window.addEventListener('popstate',function(){
  if(ntOnPop()) return; /* 공지 창이 열려 있으면 뒤로 가기는 창만 닫습니다 */
  if(session&&!isStudent()) return;
+ if(sessOver()){leaveTo(true,EXPIRED);return;}
  if(!session&&!restore()) return;
  render(hashView()||'hub');
 });
 /* 다른 탭에서 로그아웃했거나 유효 시간이 지나면 이 탭도 로그인 화면으로 돌아갑니다. 다른 탭에서 다른 학생이 로그인했으면 그 학생의 첫 화면으로 바꿉니다 */
+var EXPIRED='로그인한 지 12시간이 지났습니다. 다시 로그인해 주십시오.';
+function sessOver(){return isStudent()&&!!session.exp&&Date.now()>session.exp;}
 function syncSess(){
  if(!isStudent()) return;
+ if(sessOver()){leaveTo(true,EXPIRED);return;}
+ if(session.kept===false) return; /* 로그인을 이 브라우저에 남기지 못한 화면(저장 공간이 가득 참 등): 맞춰 볼 저장된 로그인이 없으므로 이 화면의 로그인을 그대로 씁니다 */
  var s=readSess();
  if(!s){leave();return;}
  if(s.t){leaveTo(false);return;}
@@ -1159,7 +1197,16 @@ function syncSess(){
 window.addEventListener('storage',function(e){if(e.key===SKEY){syncSess(); spRefresh();} else if(e.key===NKEY) ntBadge(); /* 다른 탭에서 공지를 읽으면 숫자를 맞춥니다 */});
 /* 말하기 계정 확인이 끝나기 전에 이 페이지를 닫거나 떠나면 확인이 끊깁니다. "확인 중"으로 남겨 두면 말하기 연습이 오지 않을 결과를 기다리므로 "연결하지 못함"으로 바꿉니다 */
 window.addEventListener('pagehide',function(){var z=readSess(); if(z&&!z.t&&!z.sp&&z.spc==='wait'){z.spc='net';writeSess(z);}});
-window.addEventListener('pageshow',function(e){if(e.persisted) syncSess();});
+/* 열어 둔 포탈 화면으로 돌아왔을 때(다른 탭이나 앱에 다녀옴, 핸드폰 화면을 다시 켬, 뒤로 가기 캐시에서 다시 열림):
+   로그인한 지 12시간이 지났으면 로그인 화면으로 돌아가고(페이지를 새로 열었을 때와 같게), 아니면 마지막 로그인 기록을 남깁니다(30분에 한 번).
+   예전에는 열어 둔 화면이 12시간이 지나도 그대로 쓰여, 다시 로그인하지 않고 쓰는 동안 마지막 로그인 기록이 남지 않았습니다. */
+function onReturn(){
+ if(!isStudent()) return;
+ syncSess();
+ if(isStudent()) portalSeen(false);
+}
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible') onReturn();});
+window.addEventListener('pageshow',function(e){if(e.persisted) onReturn();});
 
 /* 화면: 리포트 */
 function viewReport(){
@@ -1723,14 +1770,14 @@ function leave(){
  if(Y&&s&&!s.t&&isStudent()){var b=$('#out'); if(b){b.disabled=true;b.textContent='저장 중…';} Y.flush(3000).then(function(){leaveTo(true);},function(){leaveTo(true);}); return;}
  leaveTo(true);
 }
-function leaveTo(clear){ /* clear=false: 다른 탭에서 선생님 통과 로그인을 남긴 경우. 그 값은 지우지 않고 이 탭만 로그인 화면으로 돌립니다 */
+function leaveTo(clear,note){ /* clear=false: 다른 탭에서 선생님 통과 로그인을 남긴 경우. 그 값은 지우지 않고 이 탭만 로그인 화면으로 돌립니다. note: 로그인 화면 위에 보일 안내 */
  ntClose(true);
  if(window.HAAdmin) window.HAAdmin.close();
  adminKeep=null; session=null; hidden={}; curLevel=null; vLevel=null; pSel=null; tSel=null;
  objUrls.forEach(function(u){URL.revokeObjectURL(u);}); objUrls=[];
  window.onresize=null;
  if(clear) clearSess(); setUrl('');
- viewLogin(); window.scrollTo(0,0);
+ viewLogin(note?{note:note}:null); window.scrollTo(0,0);
 }
 
 window.HA={app:app,$:$,esc:esc,deriveId:deriveId,decryptBundle:decryptBundle,leave:leave,preview:previewStudent,session:function(){return session;},spApi:SP_API,b64e:b64e,learn:LEARN,teacherSess:teacherSess,
@@ -1813,6 +1860,6 @@ else if(restore()) route(hashView()||'hub',true); else{if(location.hash) setUrl(
  mount(); new MutationObserver(mount).observe(document.getElementById('app'),{childList:true});
 })();
 </script>
-<script src="admin.js?v=11"></script>
+<script src="admin.js?v=12"></script>
 </body>
 </html>
