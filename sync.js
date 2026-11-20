@@ -632,6 +632,9 @@
   }
   function doReload() {
     if (!reloadPending || unloading) return;
+    /* 이 페이지가 쓰는 중이면(말하기 연습·녹음·재생 등) 지금 새로 불러오지 않고 끝날 때까지 기다립니다.
+       예전에는 막아 둔 값을 페이지가 다시 쓰는 순간(frozenWrite) 여기로 바로 와서, 연습 도중에 페이지가 새로 불러와지고 연결이 끊겼습니다(2026-11-20). */
+    if (busyPage()) { tlog('reload-wait-busy'); setTimeout(tryReload, 2000); return; }
     var log = [], t = now();
     try { log = JSON.parse(W.sessionStorage.getItem('soda-sync:rl') || '[]').filter(function (x) { return t - x < 60000; }); } catch (e) { log = []; }
     if (log.length >= 3) { tlog('reload-guard'); reloadPending = false; frozen = {}; allFrozen = false; return; } /* 너무 자주 새로 불러오면 멈춤 */
