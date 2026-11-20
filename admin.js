@@ -665,7 +665,7 @@ function summaryHtml(){
   +'<div class="acell warn"><b>'+c.warn+'</b><span>확인 필요</span></div>'};
 }
 /* 마지막 로그인 · 마지막 말하기: 말하기 서버(/portal/status)에서 받습니다. 관리자 파일의 키로 관리자임을 확인합니다.
-   로그인은 학습 포탈에 로그인하거나 저장된 로그인으로 포탈을 연 시각(같은 기기에서 30분에 한 번 기록)입니다.
+   로그인은 학습 포탈에 로그인하거나, 저장된 로그인으로 포탈을 열거나, 열어 둔 포탈 화면으로 돌아온 시각(같은 기기에서 30분에 한 번 기록, index.html의 portalSeen)입니다.
    말하기는 말하기 연습(SODA Sprechen)을 시작한 시각입니다. 말하기 계정은 학생 파일의 말하기 계정, 없으면 포탈 아이디와 같은 계정입니다. */
 async function loadPresence(){
  if(!S||!S.kb){PR={state:'off',seen:{},sp:{},at:0};return;}
