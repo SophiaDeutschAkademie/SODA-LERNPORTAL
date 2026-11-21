@@ -44,6 +44,7 @@
       리포트 이름은 '레벨 Set 번호'입니다. Hörtraining은 --title 에 앱의 세트 이름(B2 Set 01, 지문 하나면 B1 Set 01 · Teil 2)을 줍니다.
       Lesetraining은 --title 에 그 리포트가 다룬 텍스트 번호(B2 05, 두 개면 B2 01 · 02)를 주면, 리포트 하나를 세트 하나로 보고
       레벨마다 01부터 세어 세트 이름(B2 Set 03)을 붙입니다. 텍스트 번호는 texts 에 남습니다.
+      Schreibtraining은 --title 에 앱의 챕터 번호(B1 01)나 세트 이름(B1 Set 01)을 주면 세트 이름(B1 Set 01)으로 맞춥니다.
       올릴 때 리포트 안의 문서 제목, 제목 회차, 머리말(이름 · 세트), 「지금까지의 기록」 줄의 세트 이름도 자동으로 맞춥니다.
   python3 tools/hareport.py fix-training --id 김민서 --password 학생비밀번호 [--dry-run]
       이미 올린 TRAINING 리포트의 이름을 add-training 과 같은 규칙으로 맞춥니다. --dry-run 은 바뀔 곳만 보여 주고 저장하지 않습니다.
@@ -489,6 +490,7 @@ TRAINING_KINDS = {
     'Lesetraining': ['lesetraining', '독해훈련', '독해 훈련'],
     'Hörtraining': ['hörtraining', 'hoertraining', 'hoeertraining', '듣기훈련', '듣기 훈련'],
     'Sprechtraining': ['sprechtraining', '말하기훈련', '말하기 훈련'],
+    'Schreibtraining': ['schreibtraining', '쓰기훈련', '쓰기 훈련'],
 }
 
 
@@ -504,6 +506,7 @@ def training_kind(text):
 # ---- TRAINING 리포트 이름 ----
 # 목록 이름은 훈련 종류와 관계없이 '레벨 Set 번호' 형식입니다.
 #   Hörtraining: 앱의 세트 이름 그대로(B2 Set 01). 세트의 지문(Teil) 하나만 올리면 'B1 Set 01 · Teil 2'.
+#   Schreibtraining: 앱의 챕터 번호를 세트 번호로 씁니다(챕터 B1 01 → B1 Set 01). --title 에는 B1 01 또는 B1 Set 01을 줍니다.
 #   Lesetraining: 리포트 하나를 세트 하나로 보고, 레벨마다 회차 순서로 01부터 셉니다(B2 Set 03).
 #     add-training --title 에는 그 리포트가 다룬 텍스트 번호(B2 05, 두 개면 B2 01 · 02)를 주고, 세트 이름은 도구가 붙입니다.
 #     텍스트 번호는 기록의 texts 에 남기고, 세트 번호와 다르면 「지금까지의 기록」 줄에 괄호로 붙입니다(B2 Set 02 (B2 03)).
@@ -519,6 +522,15 @@ def tr_set_name(s):
     if not m:
         return None
     return '%s Set %02d' % (m.group(1), int(m.group(2))) + (' · Teil %s' % m.group(3) if m.group(3) else '')
+
+
+def sr_set_name(s):
+    """Schreibtraining 챕터 번호('B1 01')나 세트 이름('b1 set 1')을 세트 이름('B1 Set 01')으로 맞춥니다. 아니면 None입니다."""
+    t = tr_texts(s)
+    if t and ' · ' not in t:
+        return t.replace(' ', ' Set ', 1)
+    n = tr_set_name(s)
+    return n if n and 'Teil' not in n else None
 
 
 def tr_texts(s):
@@ -550,6 +562,8 @@ def training_names(tr):
     names, cnt = {}, {}
     for t in sorted(tr, key=lambda x: (x['kind'], x['n'])):
         title = label = t['title']
+        if t['kind'] == 'Schreibtraining':
+            title = label = sr_set_name(t['title']) or t['title']
         if t['kind'] == 'Lesetraining':
             lv = tr_level(t)
             if lv:
@@ -664,6 +678,10 @@ def cmd_training(a):
         title = tr_set_name(title)
         if not title:
             sys.exit('Hörtraining --title 은 앱의 세트 이름으로 씁니다. 예: B2 Set 01. 세트의 지문(Teil) 하나만 올리면 B1 Set 01 · Teil 2')
+    elif kind == 'Schreibtraining':
+        title = sr_set_name(title)
+        if not title:
+            sys.exit('Schreibtraining --title 은 앱의 챕터 번호(B1 01)나 세트 이름(B1 Set 01)으로 씁니다. 목록에는 B1 Set 01로 보입니다.')
     elif kind == 'Lesetraining':
         texts = tr_texts(title)
         if texts:
