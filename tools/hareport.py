@@ -60,7 +60,7 @@
       관리자 파일에 기록된 가짜 파일의 크기를 30KB~900KB로 다시 정합니다. 학생 파일이 커져 눈에 띌 때 실행합니다.
   python3 tools/hareport.py add-notice --title "제목" (--body "내용" | --body-file 공지.txt) [--to "B1,B2"] [--pin] [--date 2026-11-15]
       공지를 notices.json 에 넣습니다. 학생 화면 머리글의 「공지사항」에 보이고, 읽지 않은 학생에게는 버튼 옆에 숫자가 나옵니다.
-      --to 를 생략하면 모든 학생이 대상입니다(레벨: A2, B1, B2, C1, GRAMMATIK, ZERTIFIKAT A2, ZERTIFIKAT B1, ZERTIFIKAT B2, SNU).
+      --to 를 생략하면 모든 학생이 대상입니다(레벨: A2, B1, B2, C1, GRAMMATIK, ZERTIFIKAT A2, ZERTIFIKAT B1, ZERTIFIKAT B2, ZERTIFIKAT C1 HS, SNU).
       --pin 은 중요 공지(맨 위 고정, 30일이 지나도 아직 열어 보지 않은 학생에게 새 공지로 셈)입니다.
       notices.json 은 공개 파일입니다. 학생 이름이나 연락처는 쓰지 않습니다. 커밋하고 푸시해야 학생 화면에 나타납니다.
   python3 tools/hareport.py edit-notice --nid 공지id [--title 제목] [--body 내용 | --body-file 공지.txt] [--to "B1"] [--pin | --unpin]
@@ -68,7 +68,7 @@
   python3 tools/hareport.py remove-notice --nid 공지id
   python3 tools/hareport.py list-notices
 
-레벨: 시험과 리포트는 레벨(A1, A2, B1, B2, C1, GRAMMATIK, ZERTIFIKAT A2, ZERTIFIKAT B1, ZERTIFIKAT B2, SNU)별로 저장하고, 회차 번호(n)는 레벨 안에서 셉니다. 로그인한 뒤 학생이 레벨 버튼으로 골라 봅니다.
+레벨: 시험과 리포트는 레벨(A1, A2, B1, B2, C1, GRAMMATIK, ZERTIFIKAT A2, ZERTIFIKAT B1, ZERTIFIKAT B2, ZERTIFIKAT C1 HS, SNU)별로 저장하고, 회차 번호(n)는 레벨 안에서 셉니다. 로그인한 뒤 학생이 레벨 버튼으로 골라 봅니다.
   - exam.json 의 level 이나 add-report 의 --level 을 생략하면 학생의 기본 레벨로 저장합니다.
   - 같은 레벨에서 같은 n 을 다시 올리면 덮어씁니다. 레벨이 다르면 n 이 같아도 따로 저장합니다.
 
@@ -87,7 +87,7 @@ from cryptography.hazmat.primitives import hashes
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / 'data'
 INDEX = DATA / 'index.json'
-LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'GRAMMATIK', 'ZERTIFIKAT A2', 'ZERTIFIKAT B1', 'ZERTIFIKAT B2', 'SNU']
+LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'GRAMMATIK', 'ZERTIFIKAT A2', 'ZERTIFIKAT B1', 'ZERTIFIKAT B2', 'ZERTIFIKAT C1 HS', 'SNU']
 VOKA_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1']  # 열람 페이지 VOKA 탭의 레벨 버튼은 A1-A2(A1과 A2를 묶음), B1, B2, C1
 ITER = 600000
 AREAS = ['grammar', 'satz', 'vocab', 'reading', 'listening', 'writing']
@@ -777,7 +777,7 @@ def cmd_show(a):
 
 
 NOTICES = ROOT / 'notices.json'
-NOTICE_TO = ['A2', 'B1', 'B2', 'C1', 'GRAMMATIK', 'ZERTIFIKAT A2', 'ZERTIFIKAT B1', 'ZERTIFIKAT B2', 'SNU']  # 관리자 화면의 레벨·반 목록과 같은 순서
+NOTICE_TO = ['A2', 'B1', 'B2', 'C1', 'GRAMMATIK', 'ZERTIFIKAT A2', 'ZERTIFIKAT B1', 'ZERTIFIKAT B2', 'ZERTIFIKAT C1 HS', 'SNU']  # 관리자 화면의 레벨·반 목록과 같은 순서
 
 
 def read_notices():

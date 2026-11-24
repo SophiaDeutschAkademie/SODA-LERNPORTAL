@@ -173,7 +173,7 @@ function vokaList(L){
  if(L==='A1'||L==='A2'||L==='A1-A2'||L==='GRAMMATIK'||L==='ZERTIFIKAT A2') return 0;
  if(L==='B1'||L==='ZERTIFIKAT B1') return 1;
  if(L==='B2'||L==='ZERTIFIKAT B2') return 2;
- if(L==='C1') return 3;
+ if(L==='C1'||L==='ZERTIFIKAT C1 HS') return 3;
  return -1;
 }
 function median(a){var b=a.slice().sort(function(p,q){return p-q;}),m=b.length>>1;return b.length?(b.length%2?b[m]:(b[m-1]+b[m])/2):null;}
