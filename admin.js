@@ -165,9 +165,9 @@ function cls(s){
  if(x.state==='missing') return {k:'warn',label:'파일 없음',rank:1,n:0};
  if(x.state==='badpw') return {k:'warn',label:'비밀번호 불일치',rank:1,n:0};
  if(x.state!=='ok') return {k:'warn',label:'불러오기 실패',rank:1,n:0};
- var m=x.sum, n=m.last?daysAgo(m.last):0; /* 제출일이 없으면 날짜를 셀 수 없으므로 빨간색으로 표시하지 않습니다 */
- if(m.last) return n>=thr?{k:'late',label:n+'일 경과',rank:0,n:n}:{k:'ok',label:'정상',rank:3,n:n};
- return {k:'norec',label:'제출 없음',rank:2,n:0};
+ var m=x.sum, vl=m.vk&&m.vk.last, n=vl?daysAgo(vl):0; /* 경과일은 VOKA 제출일만 기준으로 셉니다. VOKA 제출이 없으면 날짜를 셀 수 없으므로 빨간색으로 표시하지 않습니다 */
+ if(vl) return n>=thr?{k:'late',label:n+'일 경과',rank:0,n:n}:{k:'ok',label:'정상',rank:3,n:n};
+ return {k:'norec',label:'VOKA 제출 없음',rank:2,n:0};
 }
 function inFilter(c,f){
  if(f==='all') return true;
@@ -574,7 +574,7 @@ function open(o){
  h+=linksHtml();
  h+='<div class="asum" id="asum"></div>';
  h+='<section class="card asec"><div class="rhead"><h2 style="margin:0">학생 현황</h2><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
-  +'<label class="thr">기준 <input id="athr" type="number" min="1" max="90" value="'+thr+'"> 일 이상 지남</label><button type="button" class="btn" id="arf">새로 불러오기</button></div></div>'
+  +'<label class="thr">VOKA 제출 후 <input id="athr" type="number" min="1" max="90" value="'+thr+'"> 일 이상 지남</label><button type="button" class="btn" id="arf">새로 불러오기</button></div></div>'
   +'<div class="tabs" id="aflt" role="tablist" aria-label="보기"></div><div class="msg" id="atmsg" role="status"></div><div class="tbscroll" id="atb"></div><p class="note" id="anote"></p></section>';
  h+='<section class="card asec" id="aman"><h2>학생 관리</h2>'
   +'<h3>GitHub 토큰</h3><p class="note">학생 추가·삭제와 비밀번호 저장에 필요합니다. GitHub의 Settings → Developer settings → Fine-grained tokens에서 SODA-LERNPORTAL 저장소 하나만 고르고 Contents 권한을 Read and write로 만든 토큰을 붙여 넣으십시오. 토큰은 저장소에 올라가지 않습니다.</p>'
@@ -660,8 +660,8 @@ function summaryHtml(){
  var c={all:A.students.length,late:0,norec:0,warn:0,ok:0};
  A.students.forEach(function(s){var q=cls(s);if(q.k==='late')c.late++;if(q.k==='norec'||q.norec)c.norec++;if(q.k==='warn')c.warn++;if(q.k==='ok')c.ok++;});
  return {c:c,html:'<div class="acell"><b>'+c.all+'</b><span>전체 학생</span></div>'
-  +'<div class="acell late"><b>'+c.late+'</b><span>'+thr+'일 이상 지남</span></div>'
-  +'<div class="acell"><b>'+c.norec+'</b><span>제출 없음</span></div>'
+  +'<div class="acell late"><b>'+c.late+'</b><span>VOKA '+thr+'일 이상 지남</span></div>'
+  +'<div class="acell"><b>'+c.norec+'</b><span>VOKA 제출 없음</span></div>'
   +'<div class="acell warn"><b>'+c.warn+'</b><span>확인 필요</span></div>'};
 }
 /* 마지막 로그인 · 마지막 말하기: 말하기 서버(/portal/status)에서 받습니다. 관리자 파일의 키로 관리자임을 확인합니다.
@@ -715,7 +715,7 @@ function rowHtml(s){
  });
  h+=presCells(s,m);
  var sub2='';
- if(m&&m.last) sub2='<small class="ago">마지막 제출 '+fmtD(m.last)+' · '+agoText(daysAgo(m.last))+'</small>';
+ if(m&&m.vk&&m.vk.last) sub2='<small class="ago">마지막 VOKA 제출 '+fmtD(m.vk.last)+' · '+agoText(daysAgo(m.vk.last))+'</small>';
  h+='<td><span class="badge '+c.k+'">'+esc(c.label)+'</span>'+sub2+'</td>';
  var mg='<div class="mgb">';
  if(s.password) mg+='<button type="button" class="btn sm" data-a="pw">'+(shown[s.fid]?'숨기기':'비밀번호')+'</button>';
@@ -728,7 +728,7 @@ function renderTable(){
  if(!A||!$('#atb')) return;
  var keep={}; document.querySelectorAll('#atb tr[data-f] .rp').forEach(function(i){if(i.value)keep[i.closest('tr').dataset.f]=i.value;});
  var sm=summaryHtml(); $('#asum').innerHTML=sm.html;
- var F=[['all','전체',sm.c.all],['late',thr+'일 이상 지남',sm.c.late],['norec','제출 없음',sm.c.norec],['ok','정상',sm.c.ok],['warn','확인 필요',sm.c.warn]];
+ var F=[['all','전체',sm.c.all],['late','VOKA '+thr+'일 이상 지남',sm.c.late],['norec','VOKA 제출 없음',sm.c.norec],['ok','정상',sm.c.ok],['warn','확인 필요',sm.c.warn]];
  $('#aflt').innerHTML=F.map(function(f){return '<button type="button" class="tab" role="tab" data-k="'+f[0]+'" aria-selected="'+(flt===f[0])+'">'+f[1]+' '+f[2]+'</button>';}).join('');
  var rows=A.students.map(function(s){return {s:s,c:cls(s)};}).filter(function(r){return inFilter(r.c,flt);});
  var KO=new Intl.Collator('ko');
